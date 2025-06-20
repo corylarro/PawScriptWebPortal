@@ -14,6 +14,16 @@ const firebaseConfig = {
     measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
 };
 
+// DEBUG: Log environment variables (remove after fixing)
+console.log('🔥 Firebase Config Debug:', {
+    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY ? 'Set ✅' : 'Missing ❌',
+    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+    // Don't log the full API key for security, just check if it exists
+    apiKeyLength: process.env.NEXT_PUBLIC_FIREBASE_API_KEY?.length,
+    apiKeyFirst10: process.env.NEXT_PUBLIC_FIREBASE_API_KEY?.substring(0, 10)
+});
+
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
