@@ -39,7 +39,13 @@ export default function PatientDashboardPage() {
             const summaries: PatientSummary[] = [];
 
             for (const doc of snapshot.docs) {
-                const discharge = { id: doc.id, ...doc.data() } as Discharge;
+                const dischargeData = doc.data();
+                const discharge = {
+                    id: doc.id,
+                    ...dischargeData,
+                    createdAt: dischargeData.createdAt?.toDate() || new Date(),
+                    updatedAt: dischargeData.updatedAt?.toDate() || new Date()
+                } as Discharge;
 
                 // TODO: In a real implementation, you'd fetch patientSync data here
                 // For now, we'll create mock data based on the discharge
@@ -67,6 +73,7 @@ export default function PatientDashboardPage() {
 
                 summaries.push(summary);
             }
+            
 
             setPatients(summaries);
             setLoading(false);

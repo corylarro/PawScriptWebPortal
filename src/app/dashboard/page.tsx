@@ -204,7 +204,7 @@ export default function DashboardPage() {
                                     fontWeight: '500'
                                 }}
                             >
-                                Clients
+                                Clients & Pets
                             </Link>
                             <Link
                                 href="/dashboard/patients"
@@ -215,7 +215,7 @@ export default function DashboardPage() {
                                     fontWeight: '500'
                                 }}
                             >
-                                Patients
+                                Medication Monitoring
                             </Link>
                             <Link
                                 href="/dashboard/new-discharge"
@@ -548,14 +548,14 @@ export default function DashboardPage() {
                                     color: '#1e293b',
                                     margin: '0 0 0.25rem 0'
                                 }}>
-                                    Manage Clients
+                                    Manage Clients & Pets
                                 </h3>
                                 <p style={{
                                     fontSize: '0.875rem',
                                     color: '#64748b',
                                     margin: '0'
                                 }}>
-                                    View client profiles and their pets
+                                    View client profiles and their pet information
                                 </p>
                             </div>
                         </Link>
@@ -592,7 +592,7 @@ export default function DashboardPage() {
                                 justifyContent: 'center',
                                 fontSize: '1.25rem'
                             }}>
-                                🐾
+                                📊
                             </div>
                             <div>
                                 <h3 style={{
@@ -601,7 +601,7 @@ export default function DashboardPage() {
                                     color: '#1e293b',
                                     margin: '0 0 0.25rem 0'
                                 }}>
-                                    Monitor Patients
+                                    Medication Monitoring
                                 </h3>
                                 <p style={{
                                     fontSize: '0.875rem',

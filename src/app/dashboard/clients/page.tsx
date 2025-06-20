@@ -426,7 +426,7 @@ export default function ClientListPage() {
                             color: '#64748b',
                             margin: '0'
                         }}>
-                            Manage your clinic&apo;s clients and their pets
+                            Manage your clinic's clients and their pets
                         </p>
                     </div>
 

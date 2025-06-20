@@ -51,7 +51,9 @@ export interface Pet {
     species: string;
     breed?: string;
     weight?: string;
-    dateOfBirth?: Date;
+    dateOfBirth?: Date; // Legacy field - kept for backward compatibility
+    ageAtCreation?: number; // age in months when record was created
+    ageAsOfDate?: Date;     // date when age was recorded
     microchipNumber?: string;
     clientId: string;
     clinicId: string;
