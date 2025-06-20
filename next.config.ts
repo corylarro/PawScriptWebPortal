@@ -1,28 +1,20 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'export', // REQUIRED for Netlify with Next.js 13+/15
+  // Remove output: 'export' - Vercel handles server-side rendering perfectly
 
-  // Disable image optimization for static export
+  // Keep images unoptimized for now (can enable later)
   images: {
     unoptimized: true
   },
 
-  // Optional: Add trailing slash for better static hosting
-  trailingSlash: true,
-
-  // Skip ESLint during build (for faster deployment)
+  // Skip ESLint during build for faster deployment
   eslint: {
     ignoreDuringBuilds: true,
   },
 
-  // Skip TypeScript type checking during build (optional)
+  // Skip TypeScript errors during build  
   typescript: {
     ignoreBuildErrors: true,
-  },
-
-  // Optional: Disable server-side features
-  experimental: {
-    // Remove any server-side experimental features if you have them
   }
 };
 
