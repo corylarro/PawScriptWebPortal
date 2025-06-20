@@ -12,6 +12,10 @@ import { COLLECTIONS, Client, Pet } from '@/types/firestore';
 import PetModal from '@/components/PetModal';
 import { formatPetDisplay } from '@/utils/petUtils';
 
+export async function generateStaticParams() {
+    return [];
+}
+
 // Extended Pet interface for the detail view (adds computed fields)
 interface PetWithMedications extends Pet {
     activeMedications: number;
