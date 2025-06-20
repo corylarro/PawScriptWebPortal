@@ -13,6 +13,10 @@ import { DoseEvent, SymptomLog } from '@/types/patientMonitoring';
 import { Discharge } from '@/types/discharge';
 import { getFrequencyOption } from '@/data/medicationTemplates';
 
+export async function generateStaticParams() {
+    return [];
+}
+
 export default function PatientDetailPage() {
     const { id } = useParams();
     const { vetUser, clinic } = useAuth();

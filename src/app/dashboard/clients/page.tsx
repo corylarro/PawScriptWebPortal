@@ -10,6 +10,10 @@ import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { db } from '@/lib/firebase';
 import { COLLECTIONS } from '@/types/firestore';
 
+export async function generateStaticParams() {
+    return [];
+}
+
 // Client interface with summary data
 interface ClientSummary {
     id: string;
