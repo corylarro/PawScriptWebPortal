@@ -1,8 +1,9 @@
-// src/app/landing/page.tsx
+// src/app/landing/page.tsx (UPDATED VERSION)
 'use client';
 
 import Link from 'next/link';
 import Image from 'next/image';
+import Footer from '@/components/Footer';
 
 export default function LandingPage() {
     return (
@@ -462,105 +463,8 @@ export default function LandingPage() {
                 </div>
             </div>
 
-            {/* Footer */}
-            <div style={{
-                padding: '4rem 2rem 3rem',
-                backgroundColor: '#1e293b',
-                color: 'white',
-                textAlign: 'center'
-            }}>
-                <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-                    <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '0.75rem',
-                        marginBottom: '2.5rem'
-                    }}>
-                        <div style={{
-                            width: '36px',
-                            height: '36px',
-                            position: 'relative',
-                            borderRadius: '8px',
-                            overflow: 'hidden'
-                        }}>
-                            <Image
-                                src="/images/pawscript-logo.png"
-                                alt="PawScript Logo"
-                                fill
-                                style={{ objectFit: 'cover' }}
-                            />
-                        </div>
-                        <span style={{
-                            fontSize: '1.375rem',
-                            fontWeight: '700'
-                        }}>
-                            PawScript
-                        </span>
-                    </div>
-
-                    <p style={{
-                        color: '#94a3b8',
-                        marginBottom: '2.5rem',
-                        fontWeight: '400',
-                        fontSize: '1.125rem'
-                    }}>
-                        Making pet medication management simple for families and veterinarians.
-                    </p>
-
-                    <div style={{
-                        display: 'flex',
-                        justifyContent: 'center',
-                        gap: '2.5rem',
-                        marginBottom: '2.5rem',
-                        fontSize: '1rem',
-                        flexWrap: 'wrap'
-                    }}>
-                        <a
-                            href="https://apps.apple.com/app/pawscript/id1234567890"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={{
-                                color: '#94a3b8',
-                                textDecoration: 'none',
-                                fontWeight: '400'
-                            }}
-                        >
-                            Download App
-                        </a>
-                        <Link
-                            href="/vets"
-                            style={{
-                                color: '#94a3b8',
-                                textDecoration: 'none',
-                                fontWeight: '400'
-                            }}
-                        >
-                            For Veterinarians
-                        </Link>
-                        <Link
-                            href="/login"
-                            style={{
-                                color: '#94a3b8',
-                                textDecoration: 'none',
-                                fontWeight: '400'
-                            }}
-                        >
-                            Vet Login
-                        </Link>
-                    </div>
-
-                    <div style={{
-                        paddingTop: '2rem',
-                        borderTop: '1px solid #334155',
-                        fontSize: '0.9rem',
-                        color: '#94a3b8',
-                        fontWeight: '400'
-                    }}>
-                        © 2025 PawScript. All rights reserved.
-                    </div>
-                </div>
-            </div>
+            {/* Use the reusable Footer component with dark variant */}
+            <Footer variant="dark" />
         </div>
     );
 }
