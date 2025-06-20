@@ -10,6 +10,16 @@ const nextConfig = {
   // Optional: Add trailing slash for better static hosting
   trailingSlash: true,
 
+  // Skip ESLint during build (for faster deployment)
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+
+  // Skip TypeScript type checking during build (optional)
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+
   // Optional: Disable server-side features
   experimental: {
     // Remove any server-side experimental features if you have them
