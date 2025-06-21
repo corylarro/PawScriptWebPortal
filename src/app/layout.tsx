@@ -4,6 +4,7 @@
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { AuthProvider } from '@/hooks/useAuth'
+import Head from 'next/head'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -14,10 +15,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <head>
+      <Head>
         <title>PawScript Vet Portal</title>
         <meta name="description" content="Veterinary portal for PawScript medication management" />
-      </head>
+      </Head>
       <body className={inter.className}>
         <AuthProvider>
           {children}
