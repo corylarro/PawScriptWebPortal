@@ -2,11 +2,16 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import type {
+import {
     User,
-    Auth
+    signInWithEmailAndPassword,
+    createUserWithEmailAndPassword,
+    signOut,
+    onAuthStateChanged,
+    sendPasswordResetEmail
 } from 'firebase/auth';
-import type { Firestore } from 'firebase/firestore';
+import { doc, getDoc, setDoc, addDoc, collection } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
 import { VetUser, Clinic, COLLECTIONS } from '@/types/firestore';
 
 interface AuthContextType {
@@ -45,33 +50,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const [clinic, setClinic] = useState<Clinic | null>(null);
     const [loading, setLoading] = useState(true);
 
-    // Firebase instances - will be lazily loaded
-    const [auth, setAuth] = useState<Auth | null>(null);
-    const [db, setDb] = useState<Firestore | null>(null);
-    const [firebaseLoaded, setFirebaseLoaded] = useState(false);
-
-    // Lazy load Firebase
-    useEffect(() => {
-        const loadFirebase = async () => {
-            try {
-                console.log('Loading Firebase...');
-                const firebaseModule = await import('@/lib/firebase');
-                setAuth(firebaseModule.auth);
-                setDb(firebaseModule.db);
-                setFirebaseLoaded(true);
-                console.log('Firebase loaded successfully');
-            } catch (error) {
-                console.error('Failed to load Firebase:', error);
-                setLoading(false);
-            }
-        };
-
-        loadFirebase();
-    }, []);
-
     // Load user profile and clinic data when user changes
     const loadUserData = async (firebaseUser: User | null) => {
-        if (!firebaseUser || !db) {
+        if (!firebaseUser) {
             setVetUser(null);
             setClinic(null);
             setLoading(false);
@@ -80,9 +61,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
         try {
             console.log('Loading user data for:', firebaseUser.uid);
-
-            // Dynamic import for Firestore functions
-            const { doc, getDoc } = await import('firebase/firestore');
 
             // Load vet user profile
             const vetUserDoc = await getDoc(doc(db, COLLECTIONS.VET_USERS, firebaseUser.uid));
@@ -149,42 +127,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
     };
 
-    // Listen for authentication state changes - only after Firebase is loaded
+    // Listen for authentication state changes
     useEffect(() => {
-        if (!firebaseLoaded || !auth) return;
-
-        const setupAuthListener = async () => {
-            const { onAuthStateChanged } = await import('firebase/auth');
-
-            const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-                console.log('Auth state changed:', firebaseUser?.uid || 'No user');
-                setUser(firebaseUser);
-                loadUserData(firebaseUser);
-            });
-
-            return unsubscribe;
-        };
-
-        let unsubscribe: (() => void) | undefined;
-        setupAuthListener().then((unsub) => {
-            unsubscribe = unsub;
+        console.log('Setting up auth listener...');
+        const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+            console.log('Auth state changed:', firebaseUser?.uid || 'No user');
+            setUser(firebaseUser);
+            loadUserData(firebaseUser);
         });
 
-        return () => {
-            if (unsubscribe) {
-                unsubscribe();
-            }
-        };
-    }, [firebaseLoaded, auth, db]);
+        return unsubscribe;
+    }, []);
 
     const signIn = async (email: string, password: string) => {
-        if (!auth) {
-            throw new Error('Firebase not loaded');
-        }
-
         setLoading(true);
         try {
-            const { signInWithEmailAndPassword } = await import('firebase/auth');
+            console.log('Attempting sign in with:', email);
             await signInWithEmailAndPassword(auth, email, password);
         } catch (error) {
             setLoading(false);
@@ -202,17 +160,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
             clinicPhone: string;
         }
     ) => {
-        if (!auth || !db) {
-            throw new Error('Firebase not loaded');
-        }
-
         setLoading(true);
         try {
             console.log('Starting signup process...');
-
-            // Dynamic imports for Firebase functions
-            const { createUserWithEmailAndPassword } = await import('firebase/auth');
-            const { doc, setDoc, addDoc, collection } = await import('firebase/firestore');
 
             // Create Firebase Auth user
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -264,20 +214,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     };
 
     const logout = async () => {
-        if (!auth) {
-            throw new Error('Firebase not loaded');
-        }
-
-        const { signOut } = await import('firebase/auth');
         await signOut(auth);
     };
 
     const resetPassword = async (email: string) => {
-        if (!auth) {
-            throw new Error('Firebase not loaded');
-        }
-
-        const { sendPasswordResetEmail } = await import('firebase/auth');
         await sendPasswordResetEmail(auth, email);
     };
 

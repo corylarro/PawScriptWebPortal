@@ -3,26 +3,18 @@ import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
-// Firebase configuration using environment variables
+// Working Firebase configuration
 const firebaseConfig = {
-    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-    measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
+    apiKey: "AIzaSyBnXDHoF4dIskk2bRa2b7CmGuAKwRFNuDE",
+    authDomain: "pawscript-web-portal.firebaseapp.com",
+    projectId: "pawscript-web-portal",
+    storageBucket: "pawscript-web-portal.firebasestorage.app",
+    messagingSenderId: "182936631452",
+    appId: "1:182936631452:web:6efe0cd9f0989a2a72d559",
+    measurementId: "G-WEBKPCFKP3"
 };
 
-// DEBUG: Log environment variables (remove after fixing)
-console.log('🔥 Firebase Config Debug:', {
-    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY ? 'Set ✅' : 'Missing ❌',
-    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-    // Don't log the full API key for security, just check if it exists
-    apiKeyLength: process.env.NEXT_PUBLIC_FIREBASE_API_KEY?.length,
-    apiKeyFirst10: process.env.NEXT_PUBLIC_FIREBASE_API_KEY?.substring(0, 10)
-});
+console.log('🔥 Using working Firebase config');
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
