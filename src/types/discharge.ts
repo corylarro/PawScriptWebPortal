@@ -1,5 +1,4 @@
-// src/types/discharge.ts
-
+// src/types/discharge.ts - Updated with missing fields
 export interface Pet {
     name: string;
     species: string;
@@ -33,7 +32,9 @@ export interface Discharge {
     id: string;
     pet: Pet;
     medications: Medication[];
-    notes: string;
+    notes?: string;         // Made optional since it might not always be present
+    visitDate?: Date;       // Added missing field
+    diagnosis?: string;     // Added missing field
     createdAt: Date;
     updatedAt: Date;
     vetId: string;          // Firebase Auth UID of the vet who created this
@@ -56,4 +57,4 @@ export interface FrequencyOption {
 export interface MedicationTemplate {
     name: string;
     defaultInstructions: string;
-  }
+}

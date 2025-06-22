@@ -18,9 +18,11 @@ export default function PatientDashboardPage() {
 
     const [patients, setPatients] = useState<PatientSummary[]>([]);
     const [loading, setLoading] = useState(true);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
-    const [filterAlert, setFilterAlert] = useState<'all' | 'high' | 'medium' | 'low' | 'none'>('all');
+
+    // Remove unused state variables that are causing ESLint errors
+    // const [searchTerm, setSearchTerm] = useState('');
+    // const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
+    // const [filterAlert, setFilterAlert] = useState<'all' | 'high' | 'medium' | 'low' | 'none'>('all');
 
     // Load patient summaries
     useEffect(() => {
@@ -73,7 +75,7 @@ export default function PatientDashboardPage() {
 
                 summaries.push(summary);
             }
-            
+
 
             setPatients(summaries);
             setLoading(false);
@@ -82,65 +84,47 @@ export default function PatientDashboardPage() {
         return unsubscribe;
     }, [vetUser, clinic]);
 
-    // Filter patients based on search and filters
-    const filteredPatients = patients.filter(patient => {
-        // Search filter - search both pet name and parent name
-        if (searchTerm) {
-            const searchLower = searchTerm.toLowerCase();
-            const petNameMatch = patient.petName.toLowerCase().includes(searchLower);
-            const parentNameMatch = patient.petParentName.toLowerCase().includes(searchLower);
-            if (!petNameMatch && !parentNameMatch) {
-                return false;
-            }
-        }
+    // Filter patients based on search and filters - simplified for coming soon page
+    const filteredPatients = patients;
 
-        // Status filter
-        if (filterStatus === 'active' && !patient.isActive) return false;
-        if (filterStatus === 'inactive' && patient.isActive) return false;
+    // Utility functions for when the feature is implemented
+    // const getAlertColor = (level: string) => {
+    //     switch (level) {
+    //         case 'high': return '#ef4444';
+    //         case 'medium': return '#FF9500';
+    //         case 'low': return '#eab308';
+    //         default: return '#34C759';
+    //     }
+    // };
 
-        // Alert filter
-        if (filterAlert !== 'all' && patient.alertLevel !== filterAlert) return false;
+    // const getAlertText = (level: string) => {
+    //     switch (level) {
+    //         case 'high': return 'High Priority';
+    //         case 'medium': return 'Medium Priority';
+    //         case 'low': return 'Low Priority';
+    //         default: return 'Good';
+    //     }
+    // };
 
-        return true;
-    });
+    // const formatDate = (date: Date) => {
+    //     return date.toLocaleDateString('en-US', {
+    //         month: 'short',
+    //         day: 'numeric',
+    //         year: 'numeric'
+    //     });
+    // };
 
-    const getAlertColor = (level: string) => {
-        switch (level) {
-            case 'high': return '#ef4444';
-            case 'medium': return '#f59e0b';
-            case 'low': return '#eab308';
-            default: return '#10b981';
-        }
-    };
+    // const formatTimeAgo = (date: Date) => {
+    //     const now = new Date();
+    //     const diffMs = now.getTime() - date.getTime();
+    //     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-    const getAlertText = (level: string) => {
-        switch (level) {
-            case 'high': return 'High Priority';
-            case 'medium': return 'Medium Priority';
-            case 'low': return 'Low Priority';
-            default: return 'Good';
-        }
-    };
-
-    const formatDate = (date: Date) => {
-        return date.toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric'
-        });
-    };
-
-    const formatTimeAgo = (date: Date) => {
-        const now = new Date();
-        const diffMs = now.getTime() - date.getTime();
-        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-        if (diffDays === 0) return 'Today';
-        if (diffDays === 1) return '1 day ago';
-        if (diffDays < 7) return `${diffDays} days ago`;
-        if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
-        return `${Math.floor(diffDays / 30)} months ago`;
-    };
+    //     if (diffDays === 0) return 'Today';
+    //     if (diffDays === 1) return '1 day ago';
+    //     if (diffDays < 7) return `${diffDays} days ago`;
+    //     if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
+    //     return `${Math.floor(diffDays / 30)} months ago`;
+    // };
 
     if (authLoading || loading) {
         return (
@@ -149,19 +133,26 @@ export default function PatientDashboardPage() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                backgroundColor: '#f8fafc'
+                backgroundColor: '#F2F2F7',
+                fontFamily: 'Nunito, -apple-system, BlinkMacSystemFont, sans-serif'
             }}>
                 <div style={{ textAlign: 'center' }}>
                     <div style={{
                         width: '48px',
                         height: '48px',
                         border: '3px solid #e2e8f0',
-                        borderTop: '3px solid #2563eb',
+                        borderTop: '3px solid #007AFF',
                         borderRadius: '50%',
                         animation: 'spin 1s linear infinite',
                         margin: '0 auto 1rem auto'
                     }} />
-                    <p style={{ color: '#64748b', fontSize: '1rem' }}>Loading patients...</p>
+                    <p style={{
+                        color: '#6D6D72',
+                        fontSize: '1rem',
+                        fontWeight: '400'
+                    }}>
+                        Loading patients...
+                    </p>
                 </div>
             </div>
         );
@@ -170,41 +161,66 @@ export default function PatientDashboardPage() {
     return (
         <div style={{
             minHeight: '100vh',
-            backgroundColor: '#f8fafc',
+            backgroundColor: '#F2F2F7',
             fontFamily: 'Nunito, -apple-system, BlinkMacSystemFont, sans-serif'
         }}>
             {/* Header */}
             <header style={{
-                backgroundColor: 'white',
+                backgroundColor: '#FFFFFF',
                 borderBottom: '1px solid #e2e8f0',
                 padding: '1rem 2rem',
                 position: 'sticky',
                 top: 0,
                 zIndex: 10,
-                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+                backdropFilter: 'blur(10px)'
             }}>
                 <div style={{
                     maxWidth: '1200px',
                     margin: '0 auto',
                     display: 'flex',
                     justifyContent: 'space-between',
-                    alignItems: 'center'
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: '1rem'
                 }}>
                     {/* Logo & Navigation */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
-                        <Link href="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', textDecoration: 'none' }}>
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '2rem',
+                        flex: '1',
+                        minWidth: '250px'
+                    }}>
+                        <Link
+                            href="/dashboard"
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.75rem',
+                                textDecoration: 'none',
+                                transition: 'transform 0.2s ease'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
+                            onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                        >
                             <div style={{
                                 width: '36px',
                                 height: '36px',
-                                position: 'relative',
+                                backgroundColor: '#007AFF',
                                 borderRadius: '8px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                boxShadow: '0 2px 8px rgba(0, 122, 255, 0.25)',
                                 overflow: 'hidden'
                             }}>
                                 <Image
                                     src="/images/pawscript-logo.png"
-                                    alt="PawScript Logo"
-                                    fill
-                                    style={{ objectFit: 'cover' }}
+                                    alt="PawScript"
+                                    width={20}
+                                    height={20}
+                                    style={{ objectFit: 'contain' }}
                                 />
                             </div>
                             <span style={{
@@ -216,38 +232,77 @@ export default function PatientDashboardPage() {
                             </span>
                         </Link>
 
-                        <nav style={{ display: 'flex', gap: '1.5rem' }}>
+                        <nav style={{
+                            display: 'flex',
+                            gap: '1.5rem',
+                            alignItems: 'center'
+                        }}>
                             <Link
                                 href="/dashboard"
                                 style={{
-                                    color: '#64748b',
+                                    color: '#6D6D72',
                                     textDecoration: 'none',
                                     fontSize: '0.875rem',
-                                    fontWeight: '500'
+                                    fontWeight: '500',
+                                    transition: 'all 0.2s ease',
+                                    padding: '0.25rem 0'
+                                }}
+                                onMouseEnter={(e) => {
+                                    e.currentTarget.style.color = '#007AFF';
+                                    e.currentTarget.style.transform = 'translateY(-1px)';
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.currentTarget.style.color = '#6D6D72';
+                                    e.currentTarget.style.transform = 'translateY(0)';
                                 }}
                             >
                                 Dashboard
                             </Link>
-                            <Link
-                                href="/dashboard/patients"
-                                style={{
-                                    color: '#2563eb',
-                                    textDecoration: 'none',
-                                    fontSize: '0.875rem',
-                                    fontWeight: '600',
-                                    borderBottom: '2px solid #2563eb',
-                                    paddingBottom: '0.25rem'
-                                }}
-                            >
+                            <div style={{
+                                color: '#007AFF',
+                                textDecoration: 'none',
+                                fontSize: '0.875rem',
+                                fontWeight: '600',
+                                borderBottom: '2px solid #007AFF',
+                                paddingBottom: '0.25rem',
+                                position: 'relative',
+                                opacity: '0.6'
+                            }}>
                                 Patients
-                            </Link>
+                                <span style={{
+                                    backgroundColor: '#FF9500',
+                                    color: 'white',
+                                    fontSize: '0.625rem',
+                                    fontWeight: '600',
+                                    padding: '0.125rem 0.25rem',
+                                    borderRadius: '4px',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.025em',
+                                    position: 'absolute',
+                                    top: '-0.5rem',
+                                    right: '-1rem',
+                                    whiteSpace: 'nowrap'
+                                }}>
+                                    V2
+                                </span>
+                            </div>
                             <Link
                                 href="/dashboard/new-discharge"
                                 style={{
-                                    color: '#64748b',
+                                    color: '#6D6D72',
                                     textDecoration: 'none',
                                     fontSize: '0.875rem',
-                                    fontWeight: '500'
+                                    fontWeight: '500',
+                                    transition: 'all 0.2s ease',
+                                    padding: '0.25rem 0'
+                                }}
+                                onMouseEnter={(e) => {
+                                    e.currentTarget.style.color = '#007AFF';
+                                    e.currentTarget.style.transform = 'translateY(-1px)';
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.currentTarget.style.color = '#6D6D72';
+                                    e.currentTarget.style.transform = 'translateY(0)';
                                 }}
                             >
                                 New Discharge
@@ -255,7 +310,7 @@ export default function PatientDashboardPage() {
                         </nav>
                     </div>
 
-                    {/* User Info */}
+                    {/* User Menu */}
                     <div style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -264,14 +319,15 @@ export default function PatientDashboardPage() {
                         <div style={{
                             width: '32px',
                             height: '32px',
-                            backgroundColor: '#2563eb',
+                            backgroundColor: '#007AFF',
                             borderRadius: '50%',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
                             color: 'white',
                             fontSize: '0.875rem',
-                            fontWeight: '600'
+                            fontWeight: '600',
+                            boxShadow: '0 2px 8px rgba(0, 122, 255, 0.25)'
                         }}>
                             {vetUser?.firstName?.[0] || 'U'}
                         </div>
@@ -285,7 +341,8 @@ export default function PatientDashboardPage() {
                             </div>
                             <div style={{
                                 fontSize: '0.75rem',
-                                color: '#64748b'
+                                color: '#6D6D72',
+                                fontWeight: '400'
                             }}>
                                 {clinic?.name}
                             </div>
@@ -294,11 +351,187 @@ export default function PatientDashboardPage() {
                 </div>
             </header>
 
-            {/* Main Content */}
+            {/* Coming Soon Overlay */}
+            <div style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: 'rgba(242, 242, 247, 0.95)',
+                backdropFilter: 'blur(8px)',
+                zIndex: 1000,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+            }}>
+                <div style={{
+                    backgroundColor: '#FFFFFF',
+                    borderRadius: '20px',
+                    padding: '3rem 2rem',
+                    maxWidth: '500px',
+                    margin: '2rem',
+                    textAlign: 'center',
+                    boxShadow: '0 20px 40px rgba(0, 0, 0, 0.15)',
+                    border: '1px solid #e2e8f0'
+                }}>
+                    <div style={{
+                        width: '80px',
+                        height: '80px',
+                        backgroundColor: '#FF9500',
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        margin: '0 auto 2rem auto',
+                        boxShadow: '0 8px 24px rgba(255, 149, 0, 0.3)'
+                    }}>
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+                        </svg>
+                    </div>
+
+                    <h2 style={{
+                        fontSize: '1.75rem',
+                        fontWeight: '700',
+                        color: '#1e293b',
+                        marginBottom: '1rem'
+                    }}>
+                        Patient Monitoring
+                    </h2>
+
+                    <div style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        backgroundColor: '#FF9500',
+                        color: 'white',
+                        fontSize: '0.875rem',
+                        fontWeight: '600',
+                        padding: '0.5rem 1rem',
+                        borderRadius: '8px',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.05em',
+                        marginBottom: '1.5rem'
+                    }}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="12" cy="12" r="10" />
+                            <polyline points="12,6 12,12 16,14" />
+                        </svg>
+                        Coming in Version 2
+                    </div>
+
+                    <p style={{
+                        fontSize: '1rem',
+                        color: '#6D6D72',
+                        marginBottom: '0.5rem',
+                        lineHeight: '1.6',
+                        fontWeight: '400'
+                    }}>
+                        Track medication adherence, symptom logs, and patient progress data from the mobile app.
+                    </p>
+
+                    <p style={{
+                        fontSize: '0.875rem',
+                        color: '#94a3b8',
+                        marginBottom: '2rem',
+                        fontWeight: '400'
+                    }}>
+                        This feature is actively in development and will evolve based on veterinarian feedback.                    </p>
+
+                    <div style={{
+                        display: 'flex',
+                        gap: '1rem',
+                        justifyContent: 'center',
+                        flexWrap: 'wrap'
+                    }}>
+                        <Link
+                            href="/dashboard"
+                            style={{
+                                backgroundColor: '#007AFF',
+                                color: 'white',
+                                padding: '0.875rem 1.5rem',
+                                borderRadius: '12px',
+                                textDecoration: 'none',
+                                fontWeight: '600',
+                                fontSize: '0.875rem',
+                                transition: 'all 0.2s ease',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.5rem'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.transform = 'translateY(-1px)';
+                                e.currentTarget.style.boxShadow = '0 8px 20px rgba(0, 122, 255, 0.3)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.transform = 'translateY(0)';
+                                e.currentTarget.style.boxShadow = 'none';
+                            }}
+                        >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="15,18 9,12 15,6" />
+                            </svg>
+                            Back to Dashboard
+                        </Link>
+
+                        <Link
+                            href="/dashboard/new-discharge"
+                            style={{
+                                backgroundColor: 'transparent',
+                                color: '#007AFF',
+                                border: '2px solid #007AFF',
+                                padding: '0.875rem 1.5rem',
+                                borderRadius: '12px',
+                                textDecoration: 'none',
+                                fontWeight: '600',
+                                fontSize: '0.875rem',
+                                transition: 'all 0.2s ease',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.5rem'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = '#007AFF';
+                                e.currentTarget.style.color = 'white';
+                                e.currentTarget.style.transform = 'translateY(-1px)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = 'transparent';
+                                e.currentTarget.style.color = '#007AFF';
+                                e.currentTarget.style.transform = 'translateY(0)';
+                            }}
+                        >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="12" y1="5" x2="12" y2="19" />
+                                <line x1="5" y1="12" x2="19" y2="12" />
+                            </svg>
+                            Create Discharge
+                        </Link>
+                        <div style={{ textAlign: 'center', marginTop: '1rem' }}>
+                            <a
+                                href="mailto:cory.larro@gmail.com"
+                                style={{
+                                    fontSize: '0.75rem',
+                                    color: '#007AFF',
+                                    textDecoration: 'underline',
+                                    fontWeight: '500'
+                                }}
+                            >
+                                Notify me when this is live
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Main Content (blurred behind overlay) */}
             <main style={{
                 maxWidth: '1200px',
                 margin: '0 auto',
-                padding: '2rem'
+                padding: '2rem',
+                filter: 'blur(2px)',
+                opacity: '0.6'
             }}>
                 {/* Page Header */}
                 <div style={{
@@ -318,8 +551,9 @@ export default function PatientDashboardPage() {
                         </h1>
                         <p style={{
                             fontSize: '1rem',
-                            color: '#64748b',
-                            margin: '0'
+                            color: '#6D6D72',
+                            margin: '0',
+                            fontWeight: '400'
                         }}>
                             Track medication adherence and symptom logs from pet owners
                         </p>
@@ -328,7 +562,7 @@ export default function PatientDashboardPage() {
                     <Link
                         href="/dashboard/new-discharge"
                         style={{
-                            backgroundColor: '#2563eb',
+                            backgroundColor: '#007AFF',
                             color: 'white',
                             padding: '0.75rem 1.5rem',
                             borderRadius: '8px',
@@ -356,23 +590,23 @@ export default function PatientDashboardPage() {
                     marginBottom: '2rem'
                 }}>
                     <div style={{
-                        backgroundColor: 'white',
+                        backgroundColor: '#FFFFFF',
                         padding: '1.5rem',
                         borderRadius: '12px',
                         border: '1px solid #e2e8f0',
-                        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+                        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)'
                     }}>
                         <div style={{
                             fontSize: '2rem',
                             fontWeight: '700',
-                            color: '#2563eb',
+                            color: '#007AFF',
                             marginBottom: '0.5rem'
                         }}>
                             {filteredPatients.length}
                         </div>
                         <div style={{
                             fontSize: '0.875rem',
-                            color: '#64748b',
+                            color: '#6D6D72',
                             fontWeight: '600'
                         }}>
                             Total Patients
@@ -380,23 +614,23 @@ export default function PatientDashboardPage() {
                     </div>
 
                     <div style={{
-                        backgroundColor: 'white',
+                        backgroundColor: '#FFFFFF',
                         padding: '1.5rem',
                         borderRadius: '12px',
                         border: '1px solid #e2e8f0',
-                        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+                        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)'
                     }}>
                         <div style={{
                             fontSize: '2rem',
                             fontWeight: '700',
-                            color: '#16a34a',
+                            color: '#34C759',
                             marginBottom: '0.5rem'
                         }}>
                             {filteredPatients.filter(p => p.isActive).length}
                         </div>
                         <div style={{
                             fontSize: '0.875rem',
-                            color: '#64748b',
+                            color: '#6D6D72',
                             fontWeight: '600'
                         }}>
                             Active Treatments
@@ -404,11 +638,11 @@ export default function PatientDashboardPage() {
                     </div>
 
                     <div style={{
-                        backgroundColor: 'white',
+                        backgroundColor: '#FFFFFF',
                         padding: '1.5rem',
                         borderRadius: '12px',
                         border: '1px solid #e2e8f0',
-                        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+                        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)'
                     }}>
                         <div style={{
                             fontSize: '2rem',
@@ -420,7 +654,7 @@ export default function PatientDashboardPage() {
                         </div>
                         <div style={{
                             fontSize: '0.875rem',
-                            color: '#64748b',
+                            color: '#6D6D72',
                             fontWeight: '600'
                         }}>
                             High Priority
@@ -428,23 +662,23 @@ export default function PatientDashboardPage() {
                     </div>
 
                     <div style={{
-                        backgroundColor: 'white',
+                        backgroundColor: '#FFFFFF',
                         padding: '1.5rem',
                         borderRadius: '12px',
                         border: '1px solid #e2e8f0',
-                        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+                        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)'
                     }}>
                         <div style={{
                             fontSize: '2rem',
                             fontWeight: '700',
-                            color: '#16a34a',
+                            color: '#34C759',
                             marginBottom: '0.5rem'
                         }}>
                             {Math.round(filteredPatients.reduce((acc, p) => acc + p.adherenceRate, 0) / filteredPatients.length || 0)}%
                         </div>
                         <div style={{
                             fontSize: '0.875rem',
-                            color: '#64748b',
+                            color: '#6D6D72',
                             fontWeight: '600'
                         }}>
                             Avg Adherence
@@ -452,309 +686,49 @@ export default function PatientDashboardPage() {
                     </div>
                 </div>
 
-                {/* Filters */}
+                {/* Rest of the content continues with the same styling... */}
                 <div style={{
-                    backgroundColor: 'white',
-                    padding: '1.5rem',
+                    backgroundColor: '#FFFFFF',
                     borderRadius: '12px',
                     border: '1px solid #e2e8f0',
-                    marginBottom: '1.5rem',
-                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
-                }}>
-                    <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                        gap: '1rem',
-                        alignItems: 'end'
-                    }}>
-                        <div>
-                            <label style={{
-                                display: 'block',
-                                fontSize: '0.875rem',
-                                fontWeight: '600',
-                                color: '#374151',
-                                marginBottom: '0.5rem'
-                            }}>
-                                Search Patients
-                            </label>
-                            <input
-                                type="text"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                placeholder="Search by pet or owner name..."
-                                style={{
-                                    width: '100%',
-                                    padding: '0.75rem',
-                                    border: '1px solid #d1d5db',
-                                    borderRadius: '6px',
-                                    fontSize: '0.875rem',
-                                    outline: 'none',
-                                    boxSizing: 'border-box'
-                                }}
-                            />
-                        </div>
-
-                        <div>
-                            <label style={{
-                                display: 'block',
-                                fontSize: '0.875rem',
-                                fontWeight: '600',
-                                color: '#374151',
-                                marginBottom: '0.5rem'
-                            }}>
-                                Status
-                            </label>
-                            <select
-                                value={filterStatus}
-                                onChange={(e) => setFilterStatus(e.target.value as 'all' | 'active' | 'inactive')}
-                                style={{
-                                    width: '100%',
-                                    padding: '0.75rem',
-                                    border: '1px solid #d1d5db',
-                                    borderRadius: '6px',
-                                    fontSize: '0.875rem',
-                                    outline: 'none',
-                                    backgroundColor: 'white',
-                                    boxSizing: 'border-box'
-                                }}
-                            >
-                                <option value="all">All Patients</option>
-                                <option value="active">Active Only</option>
-                                <option value="inactive">Inactive Only</option>
-                            </select>
-                        </div>
-
-                        <div>
-                            <label style={{
-                                display: 'block',
-                                fontSize: '0.875rem',
-                                fontWeight: '600',
-                                color: '#374151',
-                                marginBottom: '0.5rem'
-                            }}>
-                                Priority Level
-                            </label>
-                            <select
-                                value={filterAlert}
-                                onChange={(e) => setFilterAlert(e.target.value as 'all' | 'high' | 'medium' | 'low' | 'none')}
-                                style={{
-                                    width: '100%',
-                                    padding: '0.75rem',
-                                    border: '1px solid #d1d5db',
-                                    borderRadius: '6px',
-                                    fontSize: '0.875rem',
-                                    outline: 'none',
-                                    backgroundColor: 'white',
-                                    boxSizing: 'border-box'
-                                }}
-                            >
-                                <option value="all">All Levels</option>
-                                <option value="high">High Priority</option>
-                                <option value="medium">Medium Priority</option>
-                                <option value="low">Low Priority</option>
-                                <option value="none">Good</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Patient List */}
-                <div style={{
-                    backgroundColor: 'white',
-                    borderRadius: '12px',
-                    border: '1px solid #e2e8f0',
-                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
                     overflow: 'hidden'
                 }}>
-                    {filteredPatients.length === 0 ? (
+                    <div style={{
+                        textAlign: 'center',
+                        padding: '4rem 2rem',
+                        color: '#6D6D72'
+                    }}>
                         <div style={{
-                            textAlign: 'center',
-                            padding: '4rem 2rem',
-                            color: '#6b7280'
+                            width: '64px',
+                            height: '64px',
+                            backgroundColor: '#F2F2F7',
+                            borderRadius: '50%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            margin: '0 auto 1rem auto'
                         }}>
-                            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🐾</div>
-                            <h3 style={{
-                                fontSize: '1.25rem',
-                                fontWeight: '600',
-                                marginBottom: '0.5rem',
-                                color: '#374151'
-                            }}>
-                                No patients found
-                            </h3>
-                            <p style={{ fontSize: '0.875rem', marginBottom: '2rem' }}>
-                                {patients.length === 0
-                                    ? "Create your first discharge summary to start monitoring patients."
-                                    : "Try adjusting your search filters."
-                                }
-                            </p>
-                            {patients.length === 0 && (
-                                <Link
-                                    href="/dashboard/new-discharge"
-                                    style={{
-                                        backgroundColor: '#2563eb',
-                                        color: 'white',
-                                        padding: '0.75rem 1.5rem',
-                                        borderRadius: '8px',
-                                        textDecoration: 'none',
-                                        fontWeight: '600',
-                                        fontSize: '0.875rem'
-                                    }}
-                                >
-                                    Create First Discharge
-                                </Link>
-                            )}
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#6D6D72" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                            </svg>
                         </div>
-                    ) : (
-                        <div>
-                            {/* Table Header */}
-                            <div style={{
-                                display: 'grid',
-                                gridTemplateColumns: '2fr 1.5fr 1fr 1fr 1fr 1fr auto',
-                                gap: '1rem',
-                                padding: '1rem 1.5rem',
-                                backgroundColor: '#f8fafc',
-                                borderBottom: '1px solid #e2e8f0',
-                                fontSize: '0.75rem',
-                                fontWeight: '600',
-                                color: '#64748b',
-                                textTransform: 'uppercase',
-                                letterSpacing: '0.05em'
-                            }}>
-                                <div>Pet & Owner</div>
-                                <div>Contact</div>
-                                <div>Medications</div>
-                                <div>Adherence</div>
-                                <div>Priority</div>
-                                <div>Status</div>
-                                <div></div>
-                            </div>
-
-                            {/* Patient Rows */}
-                            {filteredPatients.map((patient) => (
-                                <div key={patient.dischargeId} style={{
-                                    display: 'grid',
-                                    gridTemplateColumns: '2fr 1.5fr 1fr 1fr 1fr 1fr auto',
-                                    gap: '1rem',
-                                    padding: '1rem 1.5rem',
-                                    borderBottom: '1px solid #f1f5f9',
-                                    alignItems: 'center',
-                                    transition: 'background-color 0.2s ease'
-                                }}
-                                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f8fafc'}
-                                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                                >
-                                    <div>
-                                        <div style={{
-                                            fontSize: '0.875rem',
-                                            fontWeight: '600',
-                                            color: '#1e293b',
-                                            marginBottom: '0.25rem'
-                                        }}>
-                                            🐾 {patient.petName}
-                                        </div>
-                                        <div style={{
-                                            fontSize: '0.75rem',
-                                            color: '#64748b'
-                                        }}>
-                                            Owner: {patient.petParentName}
-                                        </div>
-                                        <div style={{
-                                            fontSize: '0.75rem',
-                                            color: '#94a3b8'
-                                        }}>
-                                            {patient.petSpecies} • {formatDate(patient.createdAt)}
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <div style={{
-                                            fontSize: '0.75rem',
-                                            color: '#64748b',
-                                            marginBottom: '0.25rem'
-                                        }}>
-                                            {patient.petParentEmail}
-                                        </div>
-                                        <div style={{
-                                            fontSize: '0.75rem',
-                                            color: '#94a3b8'
-                                        }}>
-                                            Last activity: {formatTimeAgo(patient.lastActivity || patient.createdAt)}
-                                        </div>
-                                    </div>
-
-                                    <div style={{
-                                        fontSize: '0.875rem',
-                                        color: '#374151',
-                                        textAlign: 'center'
-                                    }}>
-                                        {patient.medicationCount}
-                                    </div>
-
-                                    <div style={{
-                                        fontSize: '0.875rem',
-                                        fontWeight: '600',
-                                        color: patient.adherenceRate >= 85 ? '#16a34a' : patient.adherenceRate >= 70 ? '#f59e0b' : '#ef4444',
-                                        textAlign: 'center'
-                                    }}>
-                                        {patient.adherenceRate}%
-                                    </div>
-
-                                    <div style={{ textAlign: 'center' }}>
-                                        <span style={{
-                                            backgroundColor: getAlertColor(patient.alertLevel),
-                                            color: 'white',
-                                            fontSize: '0.75rem',
-                                            fontWeight: '600',
-                                            padding: '0.25rem 0.5rem',
-                                            borderRadius: '12px'
-                                        }}>
-                                            {getAlertText(patient.alertLevel)}
-                                        </span>
-                                    </div>
-
-                                    <div style={{ textAlign: 'center' }}>
-                                        <span style={{
-                                            backgroundColor: patient.isActive ? '#dcfce7' : '#f3f4f6',
-                                            color: patient.isActive ? '#16a34a' : '#6b7280',
-                                            fontSize: '0.75rem',
-                                            fontWeight: '600',
-                                            padding: '0.25rem 0.5rem',
-                                            borderRadius: '12px'
-                                        }}>
-                                            {patient.isActive ? 'Active' : 'Inactive'}
-                                        </span>
-                                    </div>
-
-                                    <div>
-                                        <Link
-                                            href={`/dashboard/patients/${patient.dischargeId}`}
-                                            style={{
-                                                backgroundColor: '#f1f5f9',
-                                                color: '#64748b',
-                                                border: '1px solid #e2e8f0',
-                                                padding: '0.5rem 0.75rem',
-                                                borderRadius: '6px',
-                                                fontSize: '0.75rem',
-                                                fontWeight: '600',
-                                                textDecoration: 'none',
-                                                transition: 'all 0.2s ease'
-                                            }}
-                                            onMouseEnter={(e) => {
-                                                e.currentTarget.style.backgroundColor = '#e2e8f0';
-                                                e.currentTarget.style.color = '#475569';
-                                            }}
-                                            onMouseLeave={(e) => {
-                                                e.currentTarget.style.backgroundColor = '#f1f5f9';
-                                                e.currentTarget.style.color = '#64748b';
-                                            }}
-                                        >
-                                            View Details
-                                        </Link>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
+                        <h3 style={{
+                            fontSize: '1.25rem',
+                            fontWeight: '600',
+                            marginBottom: '0.5rem',
+                            color: '#1e293b'
+                        }}>
+                            Patient data will appear here
+                        </h3>
+                        <p style={{
+                            fontSize: '0.875rem',
+                            marginBottom: '2rem',
+                            fontWeight: '400'
+                        }}>
+                            Once connected to the mobile app, you'll see real-time patient monitoring data.
+                        </p>
+                    </div>
                 </div>
             </main>
 
@@ -763,6 +737,56 @@ export default function PatientDashboardPage() {
                 @keyframes spin {
                     0% { transform: rotate(0deg); }
                     100% { transform: rotate(360deg); }
+                }
+                
+                @media (max-width: 768px) {
+                    .nav-links {
+                        display: none !important;
+                    }
+                    
+                    main {
+                        padding: 1rem !important;
+                    }
+                    
+                    h1 {
+                        fontSize: 1.5rem !important;
+                    }
+                    
+                    .coming-soon-modal {
+                        margin: 1rem !important;
+                        padding: 2rem 1.5rem !important;
+                    }
+                    
+                    .coming-soon-buttons {
+                        flex-direction: column !important;
+                        gap: 0.75rem !important;
+                    }
+                    
+                    .stats-grid {
+                        grid-template-columns: repeat(2, 1fr) !important;
+                        gap: 1rem !important;
+                    }
+                    
+                    .page-header {
+                        flex-direction: column !important;
+                        align-items: flex-start !important;
+                        gap: 1rem !important;
+                    }
+                }
+                
+                @media (max-width: 480px) {
+                    .stats-grid {
+                        grid-template-columns: 1fr !important;
+                    }
+                    
+                    .coming-soon-icon {
+                        width: 60px !important;
+                        height: 60px !important;
+                    }
+                    
+                    .coming-soon-title {
+                        font-size: 1.5rem !important;
+                    }
                 }
             `}</style>
         </div>

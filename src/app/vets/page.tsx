@@ -1,4 +1,4 @@
-// src/app/vets/page.tsx
+// src/app/vets/page.tsx (POLISHED VERSION - Inline Styles Only)
 'use client';
 
 import Link from 'next/link';
@@ -33,7 +33,7 @@ export default function VetsPage() {
                         overflow: 'hidden'
                     }}>
                         <Image
-                            src="/images/pawscript-logo.png"
+                            src="/images/logoblack.png"
                             alt="PawScript Logo"
                             fill
                             style={{ objectFit: 'cover' }}
@@ -49,7 +49,12 @@ export default function VetsPage() {
                 </Link>
 
                 {/* Navigation Links */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '2rem',
+                    flexWrap: 'wrap'
+                }}>
                     <Link
                         href="/"
                         style={{
@@ -81,7 +86,18 @@ export default function VetsPage() {
                             borderRadius: '8px',
                             textDecoration: 'none',
                             fontWeight: '600',
-                            fontSize: '0.95rem'
+                            fontSize: '0.95rem',
+                            border: 'none',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease'
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = '#0051D0';
+                            e.currentTarget.style.transform = 'translateY(-1px)';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = '#007AFF';
+                            e.currentTarget.style.transform = 'translateY(0)';
                         }}
                     >
                         Get Started
@@ -91,13 +107,13 @@ export default function VetsPage() {
 
             {/* Hero Section */}
             <div style={{
-                padding: '6rem 2rem 5rem',
+                padding: 'clamp(3rem, 8vw, 6rem) 2rem clamp(2.5rem, 6vw, 5rem)',
                 backgroundColor: '#FFFFFF',
                 textAlign: 'center'
             }}>
                 <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
                     <h1 style={{
-                        fontSize: '3.75rem',
+                        fontSize: 'clamp(2.5rem, 5vw, 3.75rem)',
                         fontWeight: '700',
                         color: '#1e293b',
                         marginBottom: '1.75rem',
@@ -110,7 +126,7 @@ export default function VetsPage() {
                     </h1>
 
                     <p style={{
-                        fontSize: '1.5rem',
+                        fontSize: 'clamp(1.125rem, 2.5vw, 1.5rem)',
                         color: '#6D6D72',
                         marginBottom: '3rem',
                         lineHeight: '1.5',
@@ -139,10 +155,21 @@ export default function VetsPage() {
                                 textDecoration: 'none',
                                 fontWeight: '600',
                                 fontSize: '1.125rem',
-                                boxShadow: '0 6px 20px rgba(0, 122, 255, 0.25)'
+                                boxShadow: '0 6px 20px rgba(0, 122, 255, 0.25)',
+                                border: 'none',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = '#0051D0';
+                                e.currentTarget.style.transform = 'translateY(-1px)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = '#007AFF';
+                                e.currentTarget.style.transform = 'translateY(0)';
                             }}
                         >
-                            🏥 Start Free Trial
+                            Start Free Trial
                         </Link>
                         <Link
                             href="/demo"
@@ -155,10 +182,20 @@ export default function VetsPage() {
                                 textDecoration: 'none',
                                 fontWeight: '600',
                                 fontSize: '1.125rem',
-                                border: '2px solid #007AFF'
+                                border: '2px solid #007AFF',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = '#007AFF';
+                                e.currentTarget.style.color = 'white';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = 'white';
+                                e.currentTarget.style.color = '#007AFF';
                             }}
                         >
-                            👀 Watch Demo
+                            Watch Demo
                         </Link>
                     </div>
 
@@ -183,13 +220,13 @@ export default function VetsPage() {
 
             {/* Key Benefits Section */}
             <div style={{
-                padding: '6rem 2rem',
+                padding: 'clamp(3rem, 8vw, 6rem) 2rem',
                 backgroundColor: '#F8FAFC'
             }}>
                 <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
                     <div style={{ textAlign: 'center', marginBottom: '5rem' }}>
                         <h2 style={{
-                            fontSize: '2.75rem',
+                            fontSize: 'clamp(2rem, 4vw, 2.75rem)',
                             fontWeight: '700',
                             color: '#1e293b',
                             marginBottom: '1.25rem'
@@ -197,7 +234,7 @@ export default function VetsPage() {
                             Why Veterinarians Choose PawScript
                         </h2>
                         <p style={{
-                            fontSize: '1.375rem',
+                            fontSize: 'clamp(1.125rem, 2.5vw, 1.375rem)',
                             color: '#6D6D72',
                             maxWidth: '600px',
                             margin: '0 auto',
@@ -210,7 +247,7 @@ export default function VetsPage() {
 
                     <div style={{
                         display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
                         gap: '3rem'
                     }}>
                         {/* Benefit 1 */}
@@ -219,7 +256,8 @@ export default function VetsPage() {
                             borderRadius: '20px',
                             backgroundColor: '#FFFFFF',
                             boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
-                            textAlign: 'center'
+                            textAlign: 'center',
+                            transition: 'all 0.2s ease'
                         }}>
                             <div style={{
                                 width: '80px',
@@ -230,7 +268,9 @@ export default function VetsPage() {
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 margin: '0 auto 2rem auto',
-                                fontSize: '2rem'
+                                fontSize: '2rem',
+                                color: 'white',
+                                fontWeight: '700'
                             }}>
                                 📋
                             </div>
@@ -258,7 +298,8 @@ export default function VetsPage() {
                             borderRadius: '20px',
                             backgroundColor: '#FFFFFF',
                             boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
-                            textAlign: 'center'
+                            textAlign: 'center',
+                            transition: 'all 0.2s ease'
                         }}>
                             <div style={{
                                 width: '80px',
@@ -269,7 +310,9 @@ export default function VetsPage() {
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 margin: '0 auto 2rem auto',
-                                fontSize: '2rem'
+                                fontSize: '2rem',
+                                color: 'white',
+                                fontWeight: '700'
                             }}>
                                 📊
                             </div>
@@ -297,7 +340,8 @@ export default function VetsPage() {
                             borderRadius: '20px',
                             backgroundColor: '#FFFFFF',
                             boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
-                            textAlign: 'center'
+                            textAlign: 'center',
+                            transition: 'all 0.2s ease'
                         }}>
                             <div style={{
                                 width: '80px',
@@ -308,7 +352,9 @@ export default function VetsPage() {
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 margin: '0 auto 2rem auto',
-                                fontSize: '2rem'
+                                fontSize: '2rem',
+                                color: 'white',
+                                fontWeight: '700'
                             }}>
                                 💬
                             </div>
@@ -335,12 +381,12 @@ export default function VetsPage() {
 
             {/* How It Works Section */}
             <div style={{
-                padding: '6rem 2rem',
+                padding: 'clamp(3rem, 8vw, 6rem) 2rem',
                 backgroundColor: '#FFFFFF'
             }}>
                 <div style={{ maxWidth: '1000px', margin: '0 auto', textAlign: 'center' }}>
                     <h2 style={{
-                        fontSize: '2.75rem',
+                        fontSize: 'clamp(2rem, 4vw, 2.75rem)',
                         fontWeight: '700',
                         color: '#1e293b',
                         marginBottom: '1.25rem'
@@ -348,7 +394,7 @@ export default function VetsPage() {
                         How It Works
                     </h2>
                     <p style={{
-                        fontSize: '1.375rem',
+                        fontSize: 'clamp(1.125rem, 2.5vw, 1.375rem)',
                         color: '#6D6D72',
                         marginBottom: '4rem',
                         fontWeight: '400',
@@ -470,12 +516,12 @@ export default function VetsPage() {
 
             {/* Integration Section */}
             <div style={{
-                padding: '6rem 2rem',
+                padding: 'clamp(3rem, 8vw, 6rem) 2rem',
                 backgroundColor: '#F8FAFC'
             }}>
                 <div style={{ maxWidth: '1000px', margin: '0 auto', textAlign: 'center' }}>
                     <h2 style={{
-                        fontSize: '2.5rem',
+                        fontSize: 'clamp(2rem, 4vw, 2.5rem)',
                         fontWeight: '600',
                         color: '#1e293b',
                         marginBottom: '1.75rem'
@@ -483,7 +529,7 @@ export default function VetsPage() {
                         Works With Your Existing Workflow
                     </h2>
                     <p style={{
-                        fontSize: '1.375rem',
+                        fontSize: 'clamp(1.125rem, 2.5vw, 1.375rem)',
                         color: '#6D6D72',
                         lineHeight: '1.6',
                         marginBottom: '3rem',
@@ -507,8 +553,18 @@ export default function VetsPage() {
                             textAlign: 'center'
                         }}>
                             <div>
-                                <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>⚡</div>
-                                <h4 style={{ fontSize: '1.125rem', fontWeight: '600', color: '#1e293b', marginBottom: '0.5rem' }}>
+                                <div style={{
+                                    fontSize: '2rem',
+                                    marginBottom: '1rem',
+                                    color: '#007AFF',
+                                    fontWeight: '700'
+                                }}>⚡</div>
+                                <h4 style={{
+                                    fontSize: '1.125rem',
+                                    fontWeight: '600',
+                                    color: '#1e293b',
+                                    marginBottom: '0.5rem'
+                                }}>
                                     Quick Setup
                                 </h4>
                                 <p style={{ color: '#6D6D72', fontSize: '0.95rem' }}>
@@ -516,8 +572,18 @@ export default function VetsPage() {
                                 </p>
                             </div>
                             <div>
-                                <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>🔗</div>
-                                <h4 style={{ fontSize: '1.125rem', fontWeight: '600', color: '#1e293b', marginBottom: '0.5rem' }}>
+                                <div style={{
+                                    fontSize: '2rem',
+                                    marginBottom: '1rem',
+                                    color: '#34C759',
+                                    fontWeight: '700'
+                                }}>🔗</div>
+                                <h4 style={{
+                                    fontSize: '1.125rem',
+                                    fontWeight: '600',
+                                    color: '#1e293b',
+                                    marginBottom: '0.5rem'
+                                }}>
                                     No Integration Required
                                 </h4>
                                 <p style={{ color: '#6D6D72', fontSize: '0.95rem' }}>
@@ -525,8 +591,18 @@ export default function VetsPage() {
                                 </p>
                             </div>
                             <div>
-                                <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>💰</div>
-                                <h4 style={{ fontSize: '1.125rem', fontWeight: '600', color: '#1e293b', marginBottom: '0.5rem' }}>
+                                <div style={{
+                                    fontSize: '2rem',
+                                    marginBottom: '1rem',
+                                    color: '#FF9500',
+                                    fontWeight: '700'
+                                }}>💰</div>
+                                <h4 style={{
+                                    fontSize: '1.125rem',
+                                    fontWeight: '600',
+                                    color: '#1e293b',
+                                    marginBottom: '0.5rem'
+                                }}>
                                     Free to Start
                                 </h4>
                                 <p style={{ color: '#6D6D72', fontSize: '0.95rem' }}>
@@ -547,10 +623,21 @@ export default function VetsPage() {
                             textDecoration: 'none',
                             fontWeight: '600',
                             fontSize: '1.125rem',
-                            boxShadow: '0 6px 20px rgba(0, 122, 255, 0.25)'
+                            boxShadow: '0 6px 20px rgba(0, 122, 255, 0.25)',
+                            border: 'none',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease'
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = '#0051D0';
+                            e.currentTarget.style.transform = 'translateY(-1px)';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = '#007AFF';
+                            e.currentTarget.style.transform = 'translateY(0)';
                         }}
                     >
-                        🚀 Start Your Free Trial
+                        Start Your Free Trial
                     </Link>
                 </div>
             </div>
@@ -560,7 +647,8 @@ export default function VetsPage() {
                 padding: '4rem 2rem 3rem',
                 backgroundColor: '#1e293b',
                 color: 'white',
-                textAlign: 'center'
+                textAlign: 'center',
+                fontFamily: 'Nunito, -apple-system, BlinkMacSystemFont, sans-serif'
             }}>
                 <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
                     <div style={{
@@ -578,7 +666,7 @@ export default function VetsPage() {
                             overflow: 'hidden'
                         }}>
                             <Image
-                                src="/images/pawscript-logo.png"
+                                src="/images/logowhite.png"
                                 alt="PawScript Logo"
                                 fill
                                 style={{ objectFit: 'cover' }}
@@ -614,8 +702,12 @@ export default function VetsPage() {
                             style={{
                                 color: '#94a3b8',
                                 textDecoration: 'none',
-                                fontWeight: '400'
+                                fontWeight: '400',
+                                transition: 'color 0.2s ease',
+                                cursor: 'pointer'
                             }}
+                            onMouseEnter={(e) => e.currentTarget.style.color = '#007AFF'}
+                            onMouseLeave={(e) => e.currentTarget.style.color = '#94a3b8'}
                         >
                             For Pet Parents
                         </Link>
@@ -624,8 +716,12 @@ export default function VetsPage() {
                             style={{
                                 color: '#94a3b8',
                                 textDecoration: 'none',
-                                fontWeight: '400'
+                                fontWeight: '400',
+                                transition: 'color 0.2s ease',
+                                cursor: 'pointer'
                             }}
+                            onMouseEnter={(e) => e.currentTarget.style.color = '#007AFF'}
+                            onMouseLeave={(e) => e.currentTarget.style.color = '#94a3b8'}
                         >
                             Login
                         </Link>
@@ -634,8 +730,12 @@ export default function VetsPage() {
                             style={{
                                 color: '#94a3b8',
                                 textDecoration: 'none',
-                                fontWeight: '400'
+                                fontWeight: '400',
+                                transition: 'color 0.2s ease',
+                                cursor: 'pointer'
                             }}
+                            onMouseEnter={(e) => e.currentTarget.style.color = '#007AFF'}
+                            onMouseLeave={(e) => e.currentTarget.style.color = '#94a3b8'}
                         >
                             Demo
                         </Link>

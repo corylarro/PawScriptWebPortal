@@ -1,4 +1,4 @@
-// src/app/landing/page.tsx (UPDATED VERSION)
+// src/app/landing/page.tsx (UPDATED VERSION - Inline Styles Only)
 'use client';
 
 import Link from 'next/link';
@@ -34,7 +34,7 @@ export default function LandingPage() {
                         overflow: 'hidden'
                     }}>
                         <Image
-                            src="/images/pawscript-logo.png"
+                            src="/images/logoblack.png"
                             alt="PawScript Logo"
                             fill
                             style={{ objectFit: 'cover' }}
@@ -50,7 +50,12 @@ export default function LandingPage() {
                 </div>
 
                 {/* Navigation Links */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '2rem',
+                    flexWrap: 'wrap'
+                }}>
                     <a
                         href="#features"
                         style={{
@@ -95,14 +100,14 @@ export default function LandingPage() {
                 <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
                     <div style={{
                         display: 'grid',
-                        gridTemplateColumns: '1fr 1fr',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
                         gap: '5rem',
                         alignItems: 'center'
                     }}>
                         {/* Left Column */}
                         <div>
                             <h1 style={{
-                                fontSize: '3.5rem',
+                                fontSize: 'clamp(2.5rem, 5vw, 3.5rem)',
                                 fontWeight: '700',
                                 color: '#1e293b',
                                 marginBottom: '1.75rem',
@@ -115,7 +120,7 @@ export default function LandingPage() {
                             </h1>
 
                             <p style={{
-                                fontSize: '1.375rem',
+                                fontSize: 'clamp(1.125rem, 2.5vw, 1.375rem)',
                                 color: '#6D6D72',
                                 marginBottom: '3rem',
                                 lineHeight: '1.5',
@@ -139,10 +144,21 @@ export default function LandingPage() {
                                         textDecoration: 'none',
                                         fontWeight: '600',
                                         fontSize: '1.125rem',
-                                        boxShadow: '0 6px 20px rgba(0, 122, 255, 0.25)'
+                                        boxShadow: '0 6px 20px rgba(0, 122, 255, 0.25)',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s ease'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.backgroundColor = '#0051D0';
+                                        e.currentTarget.style.transform = 'translateY(-1px)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.backgroundColor = '#007AFF';
+                                        e.currentTarget.style.transform = 'translateY(0)';
                                     }}
                                 >
-                                    📱 Download Free
+                                    Download Free
                                 </a>
                             </div>
 
@@ -224,7 +240,7 @@ export default function LandingPage() {
 
                     <div style={{
                         display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
                         gap: '3rem'
                     }}>
                         {/* Feature 1 */}
@@ -233,7 +249,9 @@ export default function LandingPage() {
                             borderRadius: '20px',
                             border: '1px solid #F2F2F7',
                             textAlign: 'center',
-                            backgroundColor: '#FFFFFF'
+                            backgroundColor: '#FFFFFF',
+                            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                            transition: 'all 0.2s ease'
                         }}>
                             <div style={{
                                 width: '80px',
@@ -244,9 +262,11 @@ export default function LandingPage() {
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 margin: '0 auto 2rem auto',
-                                fontSize: '2rem'
+                                fontSize: '2rem',
+                                color: 'white',
+                                fontWeight: '700'
                             }}>
-                                💊
+                                Rx
                             </div>
                             <h3 style={{
                                 fontSize: '1.5rem',
@@ -272,7 +292,9 @@ export default function LandingPage() {
                             borderRadius: '20px',
                             border: '1px solid #F2F2F7',
                             textAlign: 'center',
-                            backgroundColor: '#FFFFFF'
+                            backgroundColor: '#FFFFFF',
+                            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                            transition: 'all 0.2s ease'
                         }}>
                             <div style={{
                                 width: '80px',
@@ -283,7 +305,9 @@ export default function LandingPage() {
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 margin: '0 auto 2rem auto',
-                                fontSize: '2rem'
+                                fontSize: '2rem',
+                                color: 'white',
+                                fontWeight: '700'
                             }}>
                                 ⏰
                             </div>
@@ -311,7 +335,9 @@ export default function LandingPage() {
                             borderRadius: '20px',
                             border: '1px solid #F2F2F7',
                             textAlign: 'center',
-                            backgroundColor: '#FFFFFF'
+                            backgroundColor: '#FFFFFF',
+                            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                            transition: 'all 0.2s ease'
                         }}>
                             <div style={{
                                 width: '80px',
@@ -322,9 +348,11 @@ export default function LandingPage() {
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 margin: '0 auto 2rem auto',
-                                fontSize: '2rem'
+                                fontSize: '2rem',
+                                color: 'white',
+                                fontWeight: '700'
                             }}>
-                                📓
+                                📋
                             </div>
                             <h3 style={{
                                 fontSize: '1.5rem',
@@ -369,9 +397,11 @@ export default function LandingPage() {
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 margin: '0 auto 2rem auto',
-                                fontSize: '2rem'
+                                fontSize: '2rem',
+                                color: 'white',
+                                fontWeight: '700'
                             }}>
-                                📥
+                                QR
                             </div>
                             <h3 style={{
                                 fontSize: '1.5rem',
@@ -454,10 +484,21 @@ export default function LandingPage() {
                                 textDecoration: 'none',
                                 fontWeight: '600',
                                 fontSize: '1.125rem',
-                                boxShadow: '0 6px 20px rgba(0, 122, 255, 0.25)'
+                                boxShadow: '0 6px 20px rgba(0, 122, 255, 0.25)',
+                                border: 'none',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = '#0051D0';
+                                e.currentTarget.style.transform = 'translateY(-1px)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = '#007AFF';
+                                e.currentTarget.style.transform = 'translateY(0)';
                             }}
                         >
-                            🧑‍⚕️ Send them this link
+                            Send them this link
                         </Link>
                     </div>
                 </div>

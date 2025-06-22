@@ -1,4 +1,4 @@
-// src/app/login/page.tsx
+// src/app/login/page.tsx (POLISHED VERSION - Inline Styles Only)
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -59,14 +59,14 @@ export default function LoginPage() {
     const inputStyle = (isFocused: boolean) => ({
         width: '100%',
         padding: '0.875rem 1rem',
-        border: isFocused ? '2px solid #2563eb' : '1px solid #e2e8f0',
+        border: isFocused ? '2px solid #007AFF' : '1px solid #e2e8f0',
         borderRadius: '8px',
         fontSize: '1rem',
         outline: 'none',
         transition: 'all 0.2s ease',
         backgroundColor: '#ffffff',
-        boxShadow: isFocused ? '0 0 0 3px rgba(37, 99, 235, 0.08)' : 'none',
-        fontFamily: 'inherit',
+        boxShadow: isFocused ? '0 0 0 3px rgba(0, 122, 255, 0.08)' : 'none',
+        fontFamily: 'Nunito, -apple-system, BlinkMacSystemFont, sans-serif',
         boxSizing: 'border-box' as const
     });
 
@@ -77,7 +77,8 @@ export default function LoginPage() {
             alignItems: 'center',
             justifyContent: 'center',
             backgroundColor: '#f8fafc',
-            padding: '2rem 1rem'
+            padding: '2rem 1rem',
+            fontFamily: 'Nunito, -apple-system, BlinkMacSystemFont, sans-serif'
         }}>
             <div style={{
                 width: '100%',
@@ -112,7 +113,7 @@ export default function LoginPage() {
                                     fontWeight: '400',
                                     transition: 'color 0.2s ease'
                                 }}
-                                onMouseEnter={(e) => e.currentTarget.style.color = '#2563eb'}
+                                onMouseEnter={(e) => e.currentTarget.style.color = '#007AFF'}
                                 onMouseLeave={(e) => e.currentTarget.style.color = '#64748b'}
                             >
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -133,13 +134,17 @@ export default function LoginPage() {
                                 position: 'relative',
                                 borderRadius: '12px',
                                 overflow: 'hidden',
-                                boxShadow: '0 4px 12px rgba(37, 99, 235, 0.15)'
+                                boxShadow: '0 4px 12px rgba(0, 122, 255, 0.15)',
+                                backgroundColor: 'transparent'
                             }}>
                                 <Image
-                                    src="/images/pawscript-logo.png"
+                                    src="/images/logoblack.png"
                                     alt="PawScript Logo"
                                     fill
-                                    style={{ objectFit: 'cover' }}
+                                    style={{
+                                        objectFit: 'contain',
+                                        backgroundColor: 'transparent'
+                                    }}
                                 />
                             </div>
                         </div>
@@ -273,7 +278,7 @@ export default function LoginPage() {
                                 disabled={loading}
                                 style={{
                                     width: '100%',
-                                    backgroundColor: loading ? '#94a3b8' : '#2563eb',
+                                    backgroundColor: loading ? '#94a3b8' : '#007AFF',
                                     color: 'white',
                                     fontWeight: '600',
                                     fontSize: '1rem',
@@ -288,12 +293,14 @@ export default function LoginPage() {
                                 }}
                                 onMouseEnter={(e) => {
                                     if (!loading) {
-                                        e.currentTarget.style.backgroundColor = '#1d4ed8';
+                                        e.currentTarget.style.backgroundColor = '#0051D0';
+                                        e.currentTarget.style.transform = 'translateY(-1px)';
                                     }
                                 }}
                                 onMouseLeave={(e) => {
                                     if (!loading) {
-                                        e.currentTarget.style.backgroundColor = '#2563eb';
+                                        e.currentTarget.style.backgroundColor = '#007AFF';
+                                        e.currentTarget.style.transform = 'translateY(0)';
                                     }
                                 }}
                             >
@@ -320,7 +327,7 @@ export default function LoginPage() {
                                     <Link
                                         href="/signup"
                                         style={{
-                                            color: '#2563eb',
+                                            color: '#007AFF',
                                             textDecoration: 'none',
                                             fontWeight: '600'
                                         }}

@@ -3,7 +3,7 @@
 
 import { useState } from 'react';
 import { Medication, TaperStage } from '@/types/discharge';
-import { medicationTemplates, frequencyOptions, getMedicationTemplate, getFrequencyOption } from '@/data/medicationTemplates';
+import { medicationTemplates, getMedicationTemplate } from '@/data/medicationTemplates';
 
 interface MedicationFormProps {
     medication: Medication;
@@ -11,6 +11,21 @@ interface MedicationFormProps {
     onUpdate: (index: number, medication: Medication) => void;
     onRemove: (index: number) => void;
 }
+
+// Simplified frequency options matching mobile app
+const frequencyOptions = [
+    { value: 1, label: '1x/day', times: ['08:00'] },
+    { value: 2, label: '2x/day', times: ['08:00', '20:00'] },
+    { value: 3, label: '3x/day', times: ['08:00', '14:00', '20:00'] },
+    { value: 4, label: '4x/day', times: ['08:00', '12:00', '16:00', '20:00'] },
+    { value: 5, label: '5x/day', times: ['08:00', '11:00', '14:00', '17:00', '20:00'] },
+    { value: 6, label: '6x/day', times: ['08:00', '10:30', '13:00', '15:30', '18:00', '20:30'] },
+    { value: 7, label: '7x/day', times: ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00'] },
+    { value: 8, label: '8x/day', times: ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00', '22:00'] },
+    { value: 9, label: '9x/day', times: ['08:00', '09:30', '11:00', '12:30', '14:00', '15:30', '17:00', '18:30', '20:00'] },
+    { value: 10, label: '10x/day', times: ['08:00', '09:20', '10:40', '12:00', '13:20', '14:40', '16:00', '17:20', '18:40', '20:00'] },
+    { value: 0.5, label: 'Every Other Day', times: ['08:00'] }
+];
 
 export default function MedicationForm({ medication, index, onUpdate, onRemove }: MedicationFormProps) {
     const [isExpanded, setIsExpanded] = useState(true);
@@ -35,42 +50,23 @@ export default function MedicationForm({ medication, index, onUpdate, onRemove }
 
     // Handle frequency change and auto-generate times
     const handleFrequencyChange = (frequency: number) => {
-        const frequencyOption = getFrequencyOption(frequency);
+        const frequencyOption = frequencyOptions.find(opt => opt.value === frequency);
         if (frequencyOption) {
-            const updates: Partial<Medication> = {
+            updateMedication({
                 frequency,
                 times: frequencyOption.times,
-                customTimes: frequencyOption.times
-            };
-
-            // Handle custom frequency
-            if (frequency === -99) {
-                updates.customFrequency = 1;
-            } else {
-                updates.customFrequency = undefined;
-            }
-
-            updateMedication(updates);
+                customTimes: [...frequencyOption.times] // Create a copy for editing
+            });
         }
     };
 
-    // Handle custom frequency change
-    const handleCustomFrequencyChange = (customFreq: number) => {
-        // Generate times based on custom frequency
-        const times: string[] = [];
-        if (customFreq > 0 && customFreq <= 6) {
-            const hoursInterval = 24 / customFreq;
-            for (let i = 0; i < customFreq; i++) {
-                const hour = Math.floor(8 + (i * hoursInterval)) % 24;
-                times.push(`${hour.toString().padStart(2, '0')}:00`);
-            }
+    // Handle individual time change
+    const handleTimeChange = (timeIndex: number, newTime: string) => {
+        if (medication.customTimes) {
+            const updatedTimes = [...medication.customTimes];
+            updatedTimes[timeIndex] = newTime;
+            updateMedication({ customTimes: updatedTimes });
         }
-
-        updateMedication({
-            customFrequency: customFreq,
-            times,
-            customTimes: times
-        });
     };
 
     // Handle taper toggle
@@ -126,7 +122,7 @@ export default function MedicationForm({ medication, index, onUpdate, onRemove }
             if (lastStage.endDate) {
                 const nextDay = new Date(lastStage.endDate);
                 nextDay.setDate(nextDay.getDate() + 1);
-                newStage.startDate = nextDay.toISOString().split('T')[0]; // YYYY-MM-DD format
+                newStage.startDate = nextDay.toISOString().split('T')[0];
             }
         }
 
@@ -153,7 +149,7 @@ export default function MedicationForm({ medication, index, onUpdate, onRemove }
 
     // Handle taper stage frequency change
     const handleTaperFrequencyChange = (stageIndex: number, frequency: number) => {
-        const frequencyOption = getFrequencyOption(frequency);
+        const frequencyOption = frequencyOptions.find(opt => opt.value === frequency);
         if (frequencyOption) {
             updateTaperStage(stageIndex, {
                 frequency,
@@ -162,32 +158,81 @@ export default function MedicationForm({ medication, index, onUpdate, onRemove }
         }
     };
 
+    // Format date for display
+    const formatDateForDisplay = (dateString: string) => {
+        if (!dateString) return '';
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', {
+            weekday: 'short',
+            month: 'short',
+            day: 'numeric'
+        });
+    };
+
+    // Generate preview summary
+    const getPreviewSummary = () => {
+        if (!medication.frequency || !medication.customTimes?.length) return '';
+
+        const frequencyOption = frequencyOptions.find(opt => opt.value === medication.frequency);
+        if (!frequencyOption) return '';
+
+        const times = medication.customTimes.map(time => {
+            const [hours, minutes] = time.split(':');
+            const hour = parseInt(hours);
+            const ampm = hour >= 12 ? 'PM' : 'AM';
+            const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+            return `${displayHour}:${minutes} ${ampm}`;
+        }).join(', ');
+
+        const startDate = medication.startDate ? formatDateForDisplay(medication.startDate) : 'today';
+
+        if (medication.frequency === 0.5) {
+            return `This medication will be given every other day at ${times}, starting ${startDate}.`;
+        } else {
+            return `This medication will be given ${frequencyOption.label} at ${times}, starting ${startDate}.`;
+        }
+    };
+
     const inputStyle = (isFocused: boolean = false) => ({
         width: '100%',
         padding: '0.75rem',
-        border: isFocused ? '2px solid #2563eb' : '1px solid #d1d5db',
-        borderRadius: '6px',
+        border: isFocused ? '2px solid #007AFF' : '1px solid #d1d5db',
+        borderRadius: '8px',
         fontSize: '0.875rem',
         outline: 'none',
         transition: 'border-color 0.2s ease',
-        fontFamily: 'inherit',
+        fontFamily: 'Nunito, sans-serif',
         boxSizing: 'border-box' as const
     });
+
+    const timeInputStyle = {
+        padding: '0.5rem 0.75rem',
+        border: '1px solid #d1d5db',
+        borderRadius: '6px',
+        fontSize: '0.875rem',
+        fontWeight: '500',
+        outline: 'none',
+        transition: 'border-color 0.2s ease',
+        fontFamily: 'Nunito, sans-serif',
+        textAlign: 'center' as const,
+        minWidth: '80px'
+    };
 
     return (
         <div style={{
             border: '1px solid #e5e7eb',
-            borderRadius: '12px',
+            borderRadius: '16px',
             backgroundColor: '#ffffff',
-            overflow: 'hidden'
+            overflow: 'hidden',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)'
         }}>
             {/* Header */}
             <div style={{
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                padding: '1rem 1.5rem',
-                backgroundColor: '#f9fafb',
+                padding: '1.25rem 1.5rem',
+                backgroundColor: '#f8fafc',
                 borderBottom: '1px solid #e5e7eb'
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -199,12 +244,15 @@ export default function MedicationForm({ medication, index, onUpdate, onRemove }
                             cursor: 'pointer',
                             padding: '0.25rem',
                             color: '#6b7280',
-                            transition: 'transform 0.2s ease'
+                            transition: 'all 0.2s ease',
+                            borderRadius: '4px'
                         }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                     >
                         <svg
-                            width="16"
-                            height="16"
+                            width="18"
+                            height="18"
                             viewBox="0 0 24 24"
                             fill="none"
                             stroke="currentColor"
@@ -221,23 +269,26 @@ export default function MedicationForm({ medication, index, onUpdate, onRemove }
                     </button>
 
                     <h3 style={{
-                        fontSize: '1rem',
+                        fontSize: '1.125rem',
                         fontWeight: '600',
-                        color: '#374151',
-                        margin: '0'
+                        color: '#1e293b',
+                        margin: '0',
+                        fontFamily: 'Nunito, sans-serif'
                     }}>
                         {medication.name || `Medication ${index + 1}`}
                         {medication.isTapered && (
                             <span style={{
-                                marginLeft: '0.5rem',
+                                marginLeft: '0.75rem',
                                 fontSize: '0.75rem',
                                 backgroundColor: '#ddd6fe',
                                 color: '#7c3aed',
-                                padding: '0.25rem 0.5rem',
+                                padding: '0.25rem 0.75rem',
                                 borderRadius: '12px',
-                                fontWeight: '500'
+                                fontWeight: '600',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.025em'
                             }}>
-                                TAPERED
+                                Tapered
                             </span>
                         )}
                     </h3>
@@ -249,14 +300,16 @@ export default function MedicationForm({ medication, index, onUpdate, onRemove }
                         backgroundColor: 'transparent',
                         color: '#ef4444',
                         border: '1px solid #ef4444',
-                        padding: '0.5rem',
-                        borderRadius: '6px',
+                        padding: '0.5rem 0.75rem',
+                        borderRadius: '8px',
                         fontSize: '0.75rem',
+                        fontWeight: '600',
                         cursor: 'pointer',
                         transition: 'all 0.2s ease',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '0.25rem'
+                        gap: '0.5rem',
+                        fontFamily: 'Nunito, sans-serif'
                     }}
                     onMouseEnter={(e) => {
                         e.currentTarget.style.backgroundColor = '#ef4444';
@@ -267,7 +320,7 @@ export default function MedicationForm({ medication, index, onUpdate, onRemove }
                         e.currentTarget.style.color = '#ef4444';
                     }}
                 >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <polyline points="3,6 5,6 21,6" />
                         <path d="M19,6l-2,14H7L5,6" />
                         <path d="M10,11v6" />
@@ -283,9 +336,9 @@ export default function MedicationForm({ medication, index, onUpdate, onRemove }
                     {/* Medication Name and Instructions */}
                     <div style={{
                         display: 'grid',
-                        gridTemplateColumns: '1fr 1fr',
-                        gap: '1rem',
-                        marginBottom: '1.5rem'
+                        gridTemplateColumns: window.innerWidth <= 768 ? '1fr' : '1fr 1fr',
+                        gap: '1.5rem',
+                        marginBottom: '2rem'
                     }}>
                         <div>
                             <label style={{
@@ -293,7 +346,8 @@ export default function MedicationForm({ medication, index, onUpdate, onRemove }
                                 fontSize: '0.875rem',
                                 fontWeight: '600',
                                 color: '#374151',
-                                marginBottom: '0.5rem'
+                                marginBottom: '0.5rem',
+                                fontFamily: 'Nunito, sans-serif'
                             }}>
                                 Medication Name *
                             </label>
@@ -306,7 +360,7 @@ export default function MedicationForm({ medication, index, onUpdate, onRemove }
                                     onChange={(e) => handleMedicationNameChange(e.target.value)}
                                     placeholder="Type or select medication"
                                     style={inputStyle()}
-                                    onFocus={(e) => e.target.style.borderColor = '#2563eb'}
+                                    onFocus={(e) => e.target.style.borderColor = '#007AFF'}
                                     onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
                                 />
                                 <datalist id={`medications-${index}`}>
@@ -323,7 +377,8 @@ export default function MedicationForm({ medication, index, onUpdate, onRemove }
                                 fontSize: '0.875rem',
                                 fontWeight: '600',
                                 color: '#374151',
-                                marginBottom: '0.5rem'
+                                marginBottom: '0.5rem',
+                                fontFamily: 'Nunito, sans-serif'
                             }}>
                                 Instructions *
                             </label>
@@ -336,33 +391,34 @@ export default function MedicationForm({ medication, index, onUpdate, onRemove }
                                 style={{
                                     ...inputStyle(),
                                     resize: 'vertical',
-                                    minHeight: '80px'
+                                    minHeight: '90px'
                                 }}
-                                onFocus={(e) => e.target.style.borderColor = '#2563eb'}
+                                onFocus={(e) => e.target.style.borderColor = '#007AFF'}
                                 onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
                             />
                         </div>
                     </div>
 
                     {/* Tapered Toggle */}
-                    <div style={{ marginBottom: '1.5rem' }}>
+                    <div style={{ marginBottom: '2rem' }}>
                         <label style={{
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '0.5rem',
+                            gap: '0.75rem',
                             cursor: 'pointer',
                             fontSize: '0.875rem',
                             fontWeight: '500',
-                            color: '#374151'
+                            color: '#374151',
+                            fontFamily: 'Nunito, sans-serif'
                         }}>
                             <input
                                 type="checkbox"
                                 checked={medication.isTapered}
                                 onChange={(e) => handleTaperToggle(e.target.checked)}
                                 style={{
-                                    width: '16px',
-                                    height: '16px',
-                                    accentColor: '#2563eb'
+                                    width: '18px',
+                                    height: '18px',
+                                    accentColor: '#007AFF'
                                 }}
                             />
                             This medication has a tapered dosing schedule
@@ -374,9 +430,9 @@ export default function MedicationForm({ medication, index, onUpdate, onRemove }
                         <div>
                             <div style={{
                                 display: 'grid',
-                                gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
-                                gap: '1rem',
-                                marginBottom: '1rem'
+                                gridTemplateColumns: window.innerWidth <= 768 ? '1fr' : 'repeat(auto-fit, minmax(180px, 1fr))',
+                                gap: '1.5rem',
+                                marginBottom: '1.5rem'
                             }}>
                                 <div>
                                     <label style={{
@@ -384,7 +440,8 @@ export default function MedicationForm({ medication, index, onUpdate, onRemove }
                                         fontSize: '0.875rem',
                                         fontWeight: '600',
                                         color: '#374151',
-                                        marginBottom: '0.5rem'
+                                        marginBottom: '0.5rem',
+                                        fontFamily: 'Nunito, sans-serif'
                                     }}>
                                         Dosage *
                                     </label>
@@ -395,7 +452,7 @@ export default function MedicationForm({ medication, index, onUpdate, onRemove }
                                         onChange={(e) => updateMedication({ dosage: e.target.value })}
                                         placeholder="e.g., 50mg, 1 tablet"
                                         style={inputStyle()}
-                                        onFocus={(e) => e.target.style.borderColor = '#2563eb'}
+                                        onFocus={(e) => e.target.style.borderColor = '#007AFF'}
                                         onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
                                     />
                                 </div>
@@ -406,7 +463,8 @@ export default function MedicationForm({ medication, index, onUpdate, onRemove }
                                         fontSize: '0.875rem',
                                         fontWeight: '600',
                                         color: '#374151',
-                                        marginBottom: '0.5rem'
+                                        marginBottom: '0.5rem',
+                                        fontFamily: 'Nunito, sans-serif'
                                     }}>
                                         Frequency *
                                     </label>
@@ -418,52 +476,16 @@ export default function MedicationForm({ medication, index, onUpdate, onRemove }
                                             ...inputStyle(),
                                             backgroundColor: 'white'
                                         }}
-                                        onFocus={(e) => e.target.style.borderColor = '#2563eb'}
+                                        onFocus={(e) => e.target.style.borderColor = '#007AFF'}
                                         onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
                                     >
-                                        <optgroup label="Common">
-                                            {frequencyOptions.filter(opt => opt.category === 'common').map((option) => (
-                                                <option key={option.value} value={option.value}>
-                                                    {option.label}
-                                                </option>
-                                            ))}
-                                        </optgroup>
-                                        <optgroup label="Other">
-                                            {frequencyOptions.filter(opt => opt.category === 'other').map((option) => (
-                                                <option key={option.value} value={option.value}>
-                                                    {option.label}
-                                                </option>
-                                            ))}
-                                        </optgroup>
+                                        {frequencyOptions.map((option) => (
+                                            <option key={option.value} value={option.value}>
+                                                {option.label}
+                                            </option>
+                                        ))}
                                     </select>
                                 </div>
-
-                                {/* Custom Frequency Input */}
-                                {medication.frequency === -99 && (
-                                    <div>
-                                        <label style={{
-                                            display: 'block',
-                                            fontSize: '0.875rem',
-                                            fontWeight: '600',
-                                            color: '#374151',
-                                            marginBottom: '0.5rem'
-                                        }}>
-                                            Times per day *
-                                        </label>
-                                        <input
-                                            type="number"
-                                            min="1"
-                                            max="6"
-                                            required
-                                            value={medication.customFrequency || 1}
-                                            onChange={(e) => handleCustomFrequencyChange(parseInt(e.target.value))}
-                                            placeholder="e.g., 5"
-                                            style={inputStyle()}
-                                            onFocus={(e) => e.target.style.borderColor = '#2563eb'}
-                                            onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
-                                        />
-                                    </div>
-                                )}
 
                                 <div>
                                     <label style={{
@@ -471,7 +493,8 @@ export default function MedicationForm({ medication, index, onUpdate, onRemove }
                                         fontSize: '0.875rem',
                                         fontWeight: '600',
                                         color: '#374151',
-                                        marginBottom: '0.5rem'
+                                        marginBottom: '0.5rem',
+                                        fontFamily: 'Nunito, sans-serif'
                                     }}>
                                         Start Date
                                     </label>
@@ -480,7 +503,7 @@ export default function MedicationForm({ medication, index, onUpdate, onRemove }
                                         value={medication.startDate || ''}
                                         onChange={(e) => updateMedication({ startDate: e.target.value })}
                                         style={inputStyle()}
-                                        onFocus={(e) => e.target.style.borderColor = '#2563eb'}
+                                        onFocus={(e) => e.target.style.borderColor = '#007AFF'}
                                         onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
                                     />
                                 </div>
@@ -491,7 +514,8 @@ export default function MedicationForm({ medication, index, onUpdate, onRemove }
                                         fontSize: '0.875rem',
                                         fontWeight: '600',
                                         color: '#374151',
-                                        marginBottom: '0.5rem'
+                                        marginBottom: '0.5rem',
+                                        fontFamily: 'Nunito, sans-serif'
                                     }}>
                                         End Date
                                     </label>
@@ -500,46 +524,142 @@ export default function MedicationForm({ medication, index, onUpdate, onRemove }
                                         value={medication.endDate || ''}
                                         onChange={(e) => updateMedication({ endDate: e.target.value })}
                                         style={inputStyle()}
-                                        onFocus={(e) => e.target.style.borderColor = '#2563eb'}
+                                        onFocus={(e) => e.target.style.borderColor = '#007AFF'}
                                         onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
                                     />
                                 </div>
                             </div>
 
-                            {/* Dosing Times and Editability */}
+                            {/* Dosing Times */}
                             {medication.customTimes && medication.customTimes.length > 0 && (
-                                <div style={{ marginTop: '1rem' }}>
+                                <div style={{ marginBottom: '1.5rem' }}>
                                     <div style={{
-                                        backgroundColor: '#f3f4f6',
-                                        padding: '0.75rem',
-                                        borderRadius: '6px',
-                                        fontSize: '0.875rem',
-                                        marginBottom: '0.75rem'
-                                    }}>
-                                        <strong>Dosing times:</strong> {medication.customTimes.join(', ')}
-                                    </div>
-
-                                    <label style={{
                                         display: 'flex',
                                         alignItems: 'center',
-                                        gap: '0.5rem',
-                                        cursor: 'pointer',
-                                        fontSize: '0.875rem',
-                                        fontWeight: '500',
-                                        color: '#374151'
+                                        justifyContent: 'space-between',
+                                        marginBottom: '1rem'
                                     }}>
-                                        <input
-                                            type="checkbox"
-                                            checked={medication.editable}
-                                            onChange={(e) => updateMedication({ editable: e.target.checked })}
-                                            style={{
-                                                width: '16px',
-                                                height: '16px',
-                                                accentColor: '#2563eb'
-                                            }}
-                                        />
-                                        Let pet owner adjust times in app
-                                    </label>
+                                        <label style={{
+                                            fontSize: '0.875rem',
+                                            fontWeight: '600',
+                                            color: '#374151',
+                                            fontFamily: 'Nunito, sans-serif'
+                                        }}>
+                                            Dosing Times
+                                        </label>
+                                        <span style={{
+                                            fontSize: '0.75rem',
+                                            color: '#6b7280',
+                                            fontFamily: 'Nunito, sans-serif'
+                                        }}>
+                                            Tap to edit time
+                                        </span>
+                                    </div>
+
+                                    <div style={{
+                                        display: 'grid',
+                                        gridTemplateColumns: window.innerWidth <= 768
+                                            ? 'repeat(auto-fit, minmax(120px, 1fr))'
+                                            : `repeat(${Math.min(medication.customTimes.length, 4)}, 1fr)`,
+                                        gap: '1rem'
+                                    }}>
+                                        {medication.customTimes.map((time, timeIndex) => (
+                                            <div key={timeIndex} style={{
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                alignItems: 'center',
+                                                gap: '0.5rem'
+                                            }}>
+                                                <label style={{
+                                                    fontSize: '0.75rem',
+                                                    fontWeight: '600',
+                                                    color: '#6b7280',
+                                                    textAlign: 'center',
+                                                    fontFamily: 'Nunito, sans-serif'
+                                                }}>
+                                                    Dose {timeIndex + 1}
+                                                </label>
+                                                <input
+                                                    type="time"
+                                                    value={time}
+                                                    onChange={(e) => handleTimeChange(timeIndex, e.target.value)}
+                                                    style={{
+                                                        ...timeInputStyle,
+                                                        borderColor: '#d1d5db'
+                                                    }}
+                                                    onFocus={(e) => e.target.style.borderColor = '#007AFF'}
+                                                    onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    <div style={{ marginTop: '1rem' }}>
+                                        <label style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.75rem',
+                                            cursor: 'pointer',
+                                            fontSize: '0.875rem',
+                                            fontWeight: '500',
+                                            color: '#374151',
+                                            fontFamily: 'Nunito, sans-serif'
+                                        }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={medication.editable}
+                                                onChange={(e) => updateMedication({ editable: e.target.checked })}
+                                                style={{
+                                                    width: '16px',
+                                                    height: '16px',
+                                                    accentColor: '#007AFF'
+                                                }}
+                                            />
+                                            Let pet owner adjust times in app
+                                        </label>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Preview Summary */}
+                            {getPreviewSummary() && (
+                                <div style={{
+                                    backgroundColor: '#f0f9ff',
+                                    border: '1px solid #0ea5e9',
+                                    borderRadius: '8px',
+                                    padding: '1rem',
+                                    marginTop: '1rem'
+                                }}>
+                                    <div style={{
+                                        display: 'flex',
+                                        alignItems: 'flex-start',
+                                        gap: '0.75rem'
+                                    }}>
+                                        <div style={{
+                                            width: '20px',
+                                            height: '20px',
+                                            borderRadius: '50%',
+                                            backgroundColor: '#0ea5e9',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            flexShrink: 0,
+                                            marginTop: '0.125rem'
+                                        }}>
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <polyline points="20,6 9,17 4,12" />
+                                            </svg>
+                                        </div>
+                                        <p style={{
+                                            fontSize: '0.875rem',
+                                            color: '#0369a1',
+                                            margin: '0',
+                                            lineHeight: '1.5',
+                                            fontFamily: 'Nunito, sans-serif'
+                                        }}>
+                                            {getPreviewSummary()}
+                                        </p>
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -552,13 +672,14 @@ export default function MedicationForm({ medication, index, onUpdate, onRemove }
                                 display: 'flex',
                                 justifyContent: 'space-between',
                                 alignItems: 'center',
-                                marginBottom: '1rem'
+                                marginBottom: '1.5rem'
                             }}>
                                 <h4 style={{
                                     fontSize: '1rem',
                                     fontWeight: '600',
                                     color: '#374151',
-                                    margin: '0'
+                                    margin: '0',
+                                    fontFamily: 'Nunito, sans-serif'
                                 }}>
                                     Taper Stages ({medication.taperStages.length})
                                 </h4>
@@ -566,23 +687,24 @@ export default function MedicationForm({ medication, index, onUpdate, onRemove }
                                 <button
                                     onClick={addTaperStage}
                                     style={{
-                                        backgroundColor: '#2563eb',
+                                        backgroundColor: '#007AFF',
                                         color: 'white',
                                         border: 'none',
                                         padding: '0.5rem 1rem',
-                                        borderRadius: '6px',
+                                        borderRadius: '8px',
                                         fontSize: '0.75rem',
                                         fontWeight: '600',
                                         cursor: 'pointer',
                                         transition: 'background-color 0.2s ease',
                                         display: 'flex',
                                         alignItems: 'center',
-                                        gap: '0.25rem'
+                                        gap: '0.5rem',
+                                        fontFamily: 'Nunito, sans-serif'
                                     }}
-                                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1d4ed8'}
-                                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
+                                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#0056CC'}
+                                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#007AFF'}
                                 >
-                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                         <line x1="12" y1="5" x2="12" y2="19" />
                                         <line x1="5" y1="12" x2="19" y2="12" />
                                     </svg>
@@ -593,34 +715,55 @@ export default function MedicationForm({ medication, index, onUpdate, onRemove }
                             {medication.taperStages.length === 0 ? (
                                 <div style={{
                                     textAlign: 'center',
-                                    padding: '2rem',
+                                    padding: '3rem 2rem',
                                     color: '#6b7280',
                                     backgroundColor: '#f9fafb',
-                                    borderRadius: '6px',
-                                    border: '1px dashed #d1d5db'
+                                    borderRadius: '12px',
+                                    border: '2px dashed #d1d5db'
                                 }}>
-                                    <p style={{ margin: '0' }}>No taper stages added yet. Click &quot;Add Stage&quot; to get started.</p>
+                                    <svg
+                                        width="48"
+                                        height="48"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        strokeWidth="1.5"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        style={{ margin: '0 auto 1rem auto', opacity: 0.5 }}
+                                    >
+                                        <line x1="12" y1="5" x2="12" y2="19" />
+                                        <line x1="5" y1="12" x2="19" y2="12" />
+                                    </svg>
+                                    <p style={{
+                                        margin: '0',
+                                        fontFamily: 'Nunito, sans-serif',
+                                        fontSize: '0.875rem'
+                                    }}>
+                                        No taper stages added yet. Click "Add Stage" to get started.
+                                    </p>
                                 </div>
                             ) : (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                                     {medication.taperStages.map((stage, stageIndex) => (
                                         <div key={stageIndex} style={{
                                             border: '1px solid #e5e7eb',
-                                            borderRadius: '8px',
-                                            padding: '1rem',
+                                            borderRadius: '12px',
+                                            padding: '1.5rem',
                                             backgroundColor: '#fafbfc'
                                         }}>
                                             <div style={{
                                                 display: 'flex',
                                                 justifyContent: 'space-between',
                                                 alignItems: 'center',
-                                                marginBottom: '1rem'
+                                                marginBottom: '1.5rem'
                                             }}>
                                                 <h5 style={{
                                                     fontSize: '0.875rem',
                                                     fontWeight: '600',
                                                     color: '#374151',
-                                                    margin: '0'
+                                                    margin: '0',
+                                                    fontFamily: 'Nunito, sans-serif'
                                                 }}>
                                                     Stage {stageIndex + 1}
                                                 </h5>
@@ -633,10 +776,11 @@ export default function MedicationForm({ medication, index, onUpdate, onRemove }
                                                             color: '#ef4444',
                                                             border: '1px solid #ef4444',
                                                             padding: '0.25rem 0.5rem',
-                                                            borderRadius: '4px',
+                                                            borderRadius: '6px',
                                                             fontSize: '0.75rem',
                                                             cursor: 'pointer',
-                                                            transition: 'all 0.2s ease'
+                                                            transition: 'all 0.2s ease',
+                                                            fontFamily: 'Nunito, sans-serif'
                                                         }}
                                                         onMouseEnter={(e) => {
                                                             e.currentTarget.style.backgroundColor = '#ef4444';
@@ -654,8 +798,11 @@ export default function MedicationForm({ medication, index, onUpdate, onRemove }
 
                                             <div style={{
                                                 display: 'grid',
-                                                gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
-                                                gap: '0.75rem'
+                                                gridTemplateColumns: window.innerWidth <= 768
+                                                    ? '1fr'
+                                                    : 'repeat(auto-fit, minmax(140px, 1fr))',
+                                                gap: '1rem',
+                                                marginBottom: '1rem'
                                             }}>
                                                 <div>
                                                     <label style={{
@@ -663,7 +810,8 @@ export default function MedicationForm({ medication, index, onUpdate, onRemove }
                                                         fontSize: '0.75rem',
                                                         fontWeight: '600',
                                                         color: '#374151',
-                                                        marginBottom: '0.25rem'
+                                                        marginBottom: '0.5rem',
+                                                        fontFamily: 'Nunito, sans-serif'
                                                     }}>
                                                         Start Date *
                                                     </label>
@@ -677,7 +825,7 @@ export default function MedicationForm({ medication, index, onUpdate, onRemove }
                                                             fontSize: '0.75rem',
                                                             padding: '0.5rem'
                                                         }}
-                                                        onFocus={(e) => e.target.style.borderColor = '#2563eb'}
+                                                        onFocus={(e) => e.target.style.borderColor = '#007AFF'}
                                                         onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
                                                     />
                                                 </div>
@@ -688,7 +836,8 @@ export default function MedicationForm({ medication, index, onUpdate, onRemove }
                                                         fontSize: '0.75rem',
                                                         fontWeight: '600',
                                                         color: '#374151',
-                                                        marginBottom: '0.25rem'
+                                                        marginBottom: '0.5rem',
+                                                        fontFamily: 'Nunito, sans-serif'
                                                     }}>
                                                         End Date *
                                                     </label>
@@ -702,7 +851,7 @@ export default function MedicationForm({ medication, index, onUpdate, onRemove }
                                                             fontSize: '0.75rem',
                                                             padding: '0.5rem'
                                                         }}
-                                                        onFocus={(e) => e.target.style.borderColor = '#2563eb'}
+                                                        onFocus={(e) => e.target.style.borderColor = '#007AFF'}
                                                         onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
                                                     />
                                                 </div>
@@ -713,7 +862,8 @@ export default function MedicationForm({ medication, index, onUpdate, onRemove }
                                                         fontSize: '0.75rem',
                                                         fontWeight: '600',
                                                         color: '#374151',
-                                                        marginBottom: '0.25rem'
+                                                        marginBottom: '0.5rem',
+                                                        fontFamily: 'Nunito, sans-serif'
                                                     }}>
                                                         Dosage *
                                                     </label>
@@ -728,7 +878,7 @@ export default function MedicationForm({ medication, index, onUpdate, onRemove }
                                                             fontSize: '0.75rem',
                                                             padding: '0.5rem'
                                                         }}
-                                                        onFocus={(e) => e.target.style.borderColor = '#2563eb'}
+                                                        onFocus={(e) => e.target.style.borderColor = '#007AFF'}
                                                         onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
                                                     />
                                                 </div>
@@ -739,7 +889,8 @@ export default function MedicationForm({ medication, index, onUpdate, onRemove }
                                                         fontSize: '0.75rem',
                                                         fontWeight: '600',
                                                         color: '#374151',
-                                                        marginBottom: '0.25rem'
+                                                        marginBottom: '0.5rem',
+                                                        fontFamily: 'Nunito, sans-serif'
                                                     }}>
                                                         Frequency *
                                                     </label>
@@ -753,37 +904,93 @@ export default function MedicationForm({ medication, index, onUpdate, onRemove }
                                                             padding: '0.5rem',
                                                             backgroundColor: 'white'
                                                         }}
-                                                        onFocus={(e) => e.target.style.borderColor = '#2563eb'}
+                                                        onFocus={(e) => e.target.style.borderColor = '#007AFF'}
                                                         onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
                                                     >
-                                                        <optgroup label="Common">
-                                                            {frequencyOptions.filter(opt => opt.category === 'common').map((option) => (
-                                                                <option key={option.value} value={option.value}>
-                                                                    {option.label}
-                                                                </option>
-                                                            ))}
-                                                        </optgroup>
-                                                        <optgroup label="Other">
-                                                            {frequencyOptions.filter(opt => opt.category === 'other' && opt.value !== -99).map((option) => (
-                                                                <option key={option.value} value={option.value}>
-                                                                    {option.label}
-                                                                </option>
-                                                            ))}
-                                                        </optgroup>
+                                                        {frequencyOptions.map((option) => (
+                                                            <option key={option.value} value={option.value}>
+                                                                {option.label}
+                                                            </option>
+                                                        ))}
                                                     </select>
                                                 </div>
                                             </div>
 
-                                            {/* Stage Times Display */}
+                                            {/* Stage Times Display with Editable Times */}
                                             {stage.times && stage.times.length > 0 && (
-                                                <div style={{
-                                                    backgroundColor: '#f3f4f6',
-                                                    padding: '0.5rem',
-                                                    borderRadius: '4px',
-                                                    fontSize: '0.75rem',
-                                                    marginTop: '0.75rem'
-                                                }}>
-                                                    <strong>Times:</strong> {stage.times.join(', ')}
+                                                <div style={{ marginTop: '1rem' }}>
+                                                    <div style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'space-between',
+                                                        marginBottom: '0.75rem'
+                                                    }}>
+                                                        <label style={{
+                                                            fontSize: '0.75rem',
+                                                            fontWeight: '600',
+                                                            color: '#374151',
+                                                            fontFamily: 'Nunito, sans-serif'
+                                                        }}>
+                                                            Dosing Times
+                                                        </label>
+                                                        <span style={{
+                                                            fontSize: '0.625rem',
+                                                            color: '#6b7280',
+                                                            fontFamily: 'Nunito, sans-serif'
+                                                        }}>
+                                                            Tap to edit time
+                                                        </span>
+                                                    </div>
+
+                                                    <div style={{
+                                                        display: 'grid',
+                                                        gridTemplateColumns: window.innerWidth <= 768
+                                                            ? 'repeat(auto-fit, minmax(100px, 1fr))'
+                                                            : `repeat(${Math.min(stage.times.length, 4)}, 1fr)`,
+                                                        gap: '0.75rem'
+                                                    }}>
+                                                        {stage.times.map((time, timeIndex) => (
+                                                            <div key={timeIndex} style={{
+                                                                display: 'flex',
+                                                                flexDirection: 'column',
+                                                                alignItems: 'center',
+                                                                gap: '0.25rem'
+                                                            }}>
+                                                                <label style={{
+                                                                    fontSize: '0.625rem',
+                                                                    fontWeight: '600',
+                                                                    color: '#6b7280',
+                                                                    textAlign: 'center',
+                                                                    fontFamily: 'Nunito, sans-serif'
+                                                                }}>
+                                                                    Dose {timeIndex + 1}
+                                                                </label>
+                                                                <input
+                                                                    type="time"
+                                                                    value={time}
+                                                                    onChange={(e) => {
+                                                                        const updatedTimes = [...stage.times];
+                                                                        updatedTimes[timeIndex] = e.target.value;
+                                                                        updateTaperStage(stageIndex, { times: updatedTimes });
+                                                                    }}
+                                                                    style={{
+                                                                        padding: '0.375rem 0.5rem',
+                                                                        border: '1px solid #d1d5db',
+                                                                        borderRadius: '4px',
+                                                                        fontSize: '0.75rem',
+                                                                        fontWeight: '500',
+                                                                        outline: 'none',
+                                                                        transition: 'border-color 0.2s ease',
+                                                                        fontFamily: 'Nunito, sans-serif',
+                                                                        textAlign: 'center',
+                                                                        minWidth: '70px'
+                                                                    }}
+                                                                    onFocus={(e) => e.target.style.borderColor = '#007AFF'}
+                                                                    onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
+                                                                />
+                                                            </div>
+                                                        ))}
+                                                    </div>
                                                 </div>
                                             )}
                                         </div>

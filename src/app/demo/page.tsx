@@ -1,4 +1,4 @@
-// src/app/demo/page.tsx
+// src/app/demo/page.tsx (POLISHED VERSION - Inline Styles Only)
 'use client';
 
 import { useState } from 'react';
@@ -117,7 +117,7 @@ export default function DemoPage() {
                         overflow: 'hidden'
                     }}>
                         <Image
-                            src="/images/pawscript-logo.png"
+                            src="/images/logoblack.png"
                             alt="PawScript Logo"
                             fill
                             style={{ objectFit: 'cover' }}
@@ -132,7 +132,12 @@ export default function DemoPage() {
                     </span>
                 </Link>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '1rem',
+                    flexWrap: 'wrap'
+                }}>
                     <Link
                         href="/vets"
                         style={{
@@ -153,7 +158,18 @@ export default function DemoPage() {
                             borderRadius: '8px',
                             textDecoration: 'none',
                             fontWeight: '600',
-                            fontSize: '0.95rem'
+                            fontSize: '0.95rem',
+                            border: 'none',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease'
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = '#0051D0';
+                            e.currentTarget.style.transform = 'translateY(-1px)';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = '#007AFF';
+                            e.currentTarget.style.transform = 'translateY(0)';
                         }}
                     >
                         Start Free Trial
@@ -170,7 +186,7 @@ export default function DemoPage() {
                 {/* Hero */}
                 <div style={{ textAlign: 'center', marginBottom: '4rem' }}>
                     <h1 style={{
-                        fontSize: '3rem',
+                        fontSize: 'clamp(2rem, 4vw, 3rem)',
                         fontWeight: '700',
                         color: '#1e293b',
                         marginBottom: '1rem'
@@ -178,7 +194,7 @@ export default function DemoPage() {
                         See PawScript in Action
                     </h1>
                     <p style={{
-                        fontSize: '1.25rem',
+                        fontSize: 'clamp(1rem, 2vw, 1.25rem)',
                         color: '#6D6D72',
                         marginBottom: '2rem',
                         maxWidth: '600px',
@@ -191,7 +207,7 @@ export default function DemoPage() {
                 {/* Interactive Demo */}
                 <div style={{
                     display: 'grid',
-                    gridTemplateColumns: '1fr 1fr',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
                     gap: '3rem',
                     alignItems: 'flex-start'
                 }}>
@@ -217,7 +233,8 @@ export default function DemoPage() {
                                     border: '1px solid #e2e8f0',
                                     cursor: currentStep === step.id ? 'pointer' : 'default',
                                     transition: 'all 0.3s ease',
-                                    position: 'relative'
+                                    position: 'relative',
+                                    boxShadow: currentStep === step.id ? '0 4px 12px rgba(0, 122, 255, 0.3)' : '0 2px 4px rgba(0, 0, 0, 0.1)'
                                 }}>
                                     <div style={{
                                         display: 'flex',
@@ -278,7 +295,7 @@ export default function DemoPage() {
                                                 e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.2)';
                                             }}
                                         >
-                                            {step.action} &rarr;
+                                            {step.action} →
                                         </button>
                                     )}
                                 </div>
@@ -324,7 +341,18 @@ export default function DemoPage() {
                                         gap: '0.75rem',
                                         marginBottom: '0.5rem'
                                     }}>
-                                        <div style={{ fontSize: '1.5rem' }}>🐾</div>
+                                        <div style={{
+                                            fontSize: '1.5rem',
+                                            width: '32px',
+                                            height: '32px',
+                                            backgroundColor: '#007AFF',
+                                            borderRadius: '50%',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            color: 'white',
+                                            fontWeight: '700'
+                                        }}>🐾</div>
                                         <div>
                                             <h4 style={{
                                                 fontSize: '1rem',
@@ -361,7 +389,18 @@ export default function DemoPage() {
                                         gap: '0.5rem',
                                         marginBottom: '0.75rem'
                                     }}>
-                                        <div style={{ fontSize: '1rem' }}>💊</div>
+                                        <div style={{
+                                            fontSize: '1rem',
+                                            width: '24px',
+                                            height: '24px',
+                                            backgroundColor: '#34C759',
+                                            borderRadius: '50%',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            color: 'white',
+                                            fontWeight: '700'
+                                        }}>Rx</div>
                                         <h4 style={{
                                             fontSize: '0.875rem',
                                             fontWeight: '600',
@@ -431,9 +470,11 @@ export default function DemoPage() {
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',
-                                        fontSize: '2rem'
+                                        fontSize: '2rem',
+                                        color: '#16a34a',
+                                        fontWeight: '700'
                                     }}>
-                                        📱
+                                        QR
                                     </div>
                                     <p style={{
                                         fontSize: '0.75rem',
@@ -479,7 +520,7 @@ export default function DemoPage() {
                                     fontSize: '0.875rem',
                                     padding: '2rem'
                                 }}>
-                                    Click the button to start the demo &rarr;
+                                    Click the button to start the demo →
                                 </div>
                             )}
                         </div>
@@ -494,10 +535,11 @@ export default function DemoPage() {
                         padding: '3rem',
                         backgroundColor: 'white',
                         borderRadius: '16px',
-                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                        animation: 'fadeIn 0.5s ease-in'
                     }}>
                         <h2 style={{
-                            fontSize: '2rem',
+                            fontSize: 'clamp(1.5rem, 3vw, 2rem)',
                             fontWeight: '700',
                             color: '#1e293b',
                             marginBottom: '1rem'
@@ -505,7 +547,7 @@ export default function DemoPage() {
                             Ready to Streamline Your Discharge Process?
                         </h2>
                         <p style={{
-                            fontSize: '1.125rem',
+                            fontSize: 'clamp(1rem, 2vw, 1.125rem)',
                             color: '#6D6D72',
                             marginBottom: '2rem'
                         }}>
@@ -526,10 +568,21 @@ export default function DemoPage() {
                                     borderRadius: '12px',
                                     textDecoration: 'none',
                                     fontWeight: '600',
-                                    fontSize: '1.125rem'
+                                    fontSize: '1.125rem',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s ease'
+                                }}
+                                onMouseEnter={(e) => {
+                                    e.currentTarget.style.backgroundColor = '#0051D0';
+                                    e.currentTarget.style.transform = 'translateY(-1px)';
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.currentTarget.style.backgroundColor = '#007AFF';
+                                    e.currentTarget.style.transform = 'translateY(0)';
                                 }}
                             >
-                                🚀 Start Free Trial
+                                Start Free Trial
                             </Link>
                             <button
                                 onClick={() => {
@@ -544,10 +597,19 @@ export default function DemoPage() {
                                     borderRadius: '12px',
                                     fontWeight: '600',
                                     fontSize: '1.125rem',
-                                    cursor: 'pointer'
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s ease'
+                                }}
+                                onMouseEnter={(e) => {
+                                    e.currentTarget.style.backgroundColor = '#007AFF';
+                                    e.currentTarget.style.color = 'white';
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.currentTarget.style.backgroundColor = 'white';
+                                    e.currentTarget.style.color = '#007AFF';
                                 }}
                             >
-                                🔄 Restart Demo
+                                Restart Demo
                             </button>
                         </div>
                     </div>

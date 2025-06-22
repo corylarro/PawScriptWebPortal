@@ -1,4 +1,4 @@
-// src/components/Footer.tsx
+// src/components/Footer.tsx (POLISHED VERSION - Inline Styles Only)
 'use client';
 
 import Link from 'next/link';
@@ -18,12 +18,16 @@ export default function Footer({
     if (isDark) {
         // Dark footer for landing page
         return (
-            <div style={{
-                padding: '4rem 2rem 3rem',
-                backgroundColor: '#1e293b',
-                color: 'white',
-                textAlign: 'center'
-            }} className={className}>
+            <div
+                style={{
+                    padding: '4rem 2rem 3rem',
+                    backgroundColor: '#1e293b',
+                    color: 'white',
+                    textAlign: 'center',
+                    fontFamily: 'Nunito, -apple-system, BlinkMacSystemFont, sans-serif'
+                }}
+                className={className}
+            >
                 <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
                     <div style={{
                         display: 'flex',
@@ -39,20 +43,12 @@ export default function Footer({
                             borderRadius: '8px',
                             overflow: 'hidden'
                         }}>
-                            {/* You can replace this with actual logo or keep as placeholder */}
-                            <div style={{
-                                width: '100%',
-                                height: '100%',
-                                backgroundColor: '#007AFF',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: '1.2rem',
-                                color: 'white',
-                                fontWeight: '700'
-                            }}>
-                                🐾
-                            </div>
+                            <Image
+                                src="/images/logowhite.png"
+                                alt="PawScript Logo"
+                                fill
+                                style={{ objectFit: 'cover' }}
+                            />
                         </div>
                         <span style={{
                             fontSize: '1.375rem',
@@ -87,7 +83,8 @@ export default function Footer({
                                 color: '#94a3b8',
                                 textDecoration: 'none',
                                 fontWeight: '400',
-                                transition: 'color 0.2s ease'
+                                transition: 'color 0.2s ease',
+                                cursor: 'pointer'
                             }}
                             onMouseEnter={(e) => e.currentTarget.style.color = '#007AFF'}
                             onMouseLeave={(e) => e.currentTarget.style.color = '#94a3b8'}
@@ -100,7 +97,8 @@ export default function Footer({
                                 color: '#94a3b8',
                                 textDecoration: 'none',
                                 fontWeight: '400',
-                                transition: 'color 0.2s ease'
+                                transition: 'color 0.2s ease',
+                                cursor: 'pointer'
                             }}
                             onMouseEnter={(e) => e.currentTarget.style.color = '#007AFF'}
                             onMouseLeave={(e) => e.currentTarget.style.color = '#94a3b8'}
@@ -113,7 +111,8 @@ export default function Footer({
                                 color: '#94a3b8',
                                 textDecoration: 'none',
                                 fontWeight: '400',
-                                transition: 'color 0.2s ease'
+                                transition: 'color 0.2s ease',
+                                cursor: 'pointer'
                             }}
                             onMouseEnter={(e) => e.currentTarget.style.color = '#007AFF'}
                             onMouseLeave={(e) => e.currentTarget.style.color = '#94a3b8'}
@@ -126,7 +125,8 @@ export default function Footer({
                                 color: '#94a3b8',
                                 textDecoration: 'none',
                                 fontWeight: '400',
-                                transition: 'color 0.2s ease'
+                                transition: 'color 0.2s ease',
+                                cursor: 'pointer'
                             }}
                             onMouseEnter={(e) => e.currentTarget.style.color = '#007AFF'}
                             onMouseLeave={(e) => e.currentTarget.style.color = '#94a3b8'}
@@ -139,7 +139,8 @@ export default function Footer({
                                 color: '#94a3b8',
                                 textDecoration: 'none',
                                 fontWeight: '400',
-                                transition: 'color 0.2s ease'
+                                transition: 'color 0.2s ease',
+                                cursor: 'pointer'
                             }}
                             onMouseEnter={(e) => e.currentTarget.style.color = '#007AFF'}
                             onMouseLeave={(e) => e.currentTarget.style.color = '#94a3b8'}
@@ -169,7 +170,8 @@ export default function Footer({
                 backgroundColor: 'white',
                 borderTop: '1px solid #e2e8f0',
                 padding: '2rem',
-                marginTop: '3rem'
+                marginTop: '3rem',
+                fontFamily: 'Nunito, -apple-system, BlinkMacSystemFont, sans-serif'
             }}
             className={className}
         >
@@ -194,7 +196,8 @@ export default function Footer({
                             textDecoration: 'none',
                             fontSize: '0.875rem',
                             fontWeight: '400',
-                            transition: 'color 0.2s ease'
+                            transition: 'color 0.2s ease',
+                            cursor: 'pointer'
                         }}
                         onMouseEnter={(e) => e.currentTarget.style.color = '#007AFF'}
                         onMouseLeave={(e) => e.currentTarget.style.color = '#6D6D72'}
@@ -208,7 +211,8 @@ export default function Footer({
                             textDecoration: 'none',
                             fontSize: '0.875rem',
                             fontWeight: '400',
-                            transition: 'color 0.2s ease'
+                            transition: 'color 0.2s ease',
+                            cursor: 'pointer'
                         }}
                         onMouseEnter={(e) => e.currentTarget.style.color = '#007AFF'}
                         onMouseLeave={(e) => e.currentTarget.style.color = '#6D6D72'}
@@ -222,7 +226,8 @@ export default function Footer({
                             textDecoration: 'none',
                             fontSize: '0.875rem',
                             fontWeight: '400',
-                            transition: 'color 0.2s ease'
+                            transition: 'color 0.2s ease',
+                            cursor: 'pointer'
                         }}
                         onMouseEnter={(e) => e.currentTarget.style.color = '#007AFF'}
                         onMouseLeave={(e) => e.currentTarget.style.color = '#6D6D72'}
@@ -236,7 +241,8 @@ export default function Footer({
                             textDecoration: 'none',
                             fontSize: '0.875rem',
                             fontWeight: '400',
-                            transition: 'color 0.2s ease'
+                            transition: 'color 0.2s ease',
+                            cursor: 'pointer'
                         }}
                         onMouseEnter={(e) => e.currentTarget.style.color = '#007AFF'}
                         onMouseLeave={(e) => e.currentTarget.style.color = '#6D6D72'}
@@ -250,7 +256,8 @@ export default function Footer({
                             textDecoration: 'none',
                             fontSize: '0.875rem',
                             fontWeight: '400',
-                            transition: 'color 0.2s ease'
+                            transition: 'color 0.2s ease',
+                            cursor: 'pointer'
                         }}
                         onMouseEnter={(e) => e.currentTarget.style.color = '#007AFF'}
                         onMouseLeave={(e) => e.currentTarget.style.color = '#6D6D72'}
@@ -264,8 +271,7 @@ export default function Footer({
                     color: '#6D6D72',
                     fontSize: '0.75rem',
                     fontWeight: '300',
-                    margin: '0',
-                    fontFamily: 'Nunito, -apple-system, BlinkMacSystemFont, sans-serif'
+                    margin: '0'
                 }}>
                     © 2025 PawScript. All rights reserved.
                 </p>

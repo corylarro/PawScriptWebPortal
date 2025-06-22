@@ -1,4 +1,4 @@
-// src/app/signup/page.tsx
+// src/app/signup/page.tsx (POLISHED VERSION - Inline Styles Only)
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -60,9 +60,6 @@ export default function SignupPage() {
         }
 
         try {
-            // For now, we'll create a simple clinic ID - in production, you'd want proper clinic management
-            // The signUp function will handle creating the clinic document
-
             await signUp(formData.email, formData.password, {
                 firstName: formData.firstName,
                 lastName: formData.lastName,
@@ -111,13 +108,9 @@ export default function SignupPage() {
 
     // Phone number formatting
     const formatPhoneNumber = (value: string) => {
-        // Remove all non-digit characters
         const phoneNumber = value.replace(/\D/g, '');
-
-        // Limit to 10 digits
         const limitedPhoneNumber = phoneNumber.slice(0, 10);
 
-        // Format as (XXX) XXX-XXXX
         if (limitedPhoneNumber.length <= 3) {
             return limitedPhoneNumber;
         } else if (limitedPhoneNumber.length <= 6) {
@@ -142,14 +135,14 @@ export default function SignupPage() {
     const inputStyle = (isFocused: boolean) => ({
         width: '100%',
         padding: '0.875rem 1rem',
-        border: isFocused ? '2px solid #2563eb' : '1px solid #e2e8f0',
+        border: isFocused ? '2px solid #007AFF' : '1px solid #e2e8f0',
         borderRadius: '8px',
         fontSize: '1rem',
         outline: 'none',
         transition: 'all 0.2s ease',
         backgroundColor: '#ffffff',
-        boxShadow: isFocused ? '0 0 0 3px rgba(37, 99, 235, 0.08)' : 'none',
-        fontFamily: 'inherit',
+        boxShadow: isFocused ? '0 0 0 3px rgba(0, 122, 255, 0.08)' : 'none',
+        fontFamily: 'Nunito, -apple-system, BlinkMacSystemFont, sans-serif',
         boxSizing: 'border-box' as const
     });
 
@@ -160,7 +153,8 @@ export default function SignupPage() {
             alignItems: 'center',
             justifyContent: 'center',
             backgroundColor: '#f8fafc',
-            padding: '2rem 1rem'
+            padding: '2rem 1rem',
+            fontFamily: 'Nunito, -apple-system, BlinkMacSystemFont, sans-serif'
         }}>
             <div style={{
                 width: '100%',
@@ -195,7 +189,7 @@ export default function SignupPage() {
                                     fontWeight: '400',
                                     transition: 'color 0.2s ease'
                                 }}
-                                onMouseEnter={(e) => e.currentTarget.style.color = '#2563eb'}
+                                onMouseEnter={(e) => e.currentTarget.style.color = '#007AFF'}
                                 onMouseLeave={(e) => e.currentTarget.style.color = '#64748b'}
                             >
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -216,13 +210,17 @@ export default function SignupPage() {
                                 position: 'relative',
                                 borderRadius: '12px',
                                 overflow: 'hidden',
-                                boxShadow: '0 4px 12px rgba(37, 99, 235, 0.15)'
+                                boxShadow: '0 4px 12px rgba(0, 122, 255, 0.15)',
+                                backgroundColor: 'transparent'
                             }}>
                                 <Image
-                                    src="/images/pawscript-logo.png"
+                                    src="/images/logoblack.png"
                                     alt="PawScript Logo"
                                     fill
-                                    style={{ objectFit: 'cover' }}
+                                    style={{
+                                        objectFit: 'contain',
+                                        backgroundColor: 'transparent'
+                                    }}
                                 />
                             </div>
                         </div>
@@ -277,10 +275,15 @@ export default function SignupPage() {
                                     borderBottom: '2px solid #f1f5f9',
                                     paddingBottom: '0.5rem'
                                 }}>
-                                    👨‍⚕️ Your Information
+                                    Your Information
                                 </h3>
 
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.25rem' }}>
+                                <div style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                                    gap: '1rem',
+                                    marginBottom: '1.25rem'
+                                }}>
                                     <div>
                                         <label style={{
                                             display: 'block',
@@ -347,7 +350,11 @@ export default function SignupPage() {
                                     />
                                 </div>
 
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                <div style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                                    gap: '1rem'
+                                }}>
                                     <div>
                                         <label style={{
                                             display: 'block',
@@ -370,7 +377,6 @@ export default function SignupPage() {
                                                 }}
                                                 onBlur={() => {
                                                     setFocusedField('');
-                                                    // Keep validation visible if there's text
                                                     if (formData.password === '') {
                                                         setShowPasswordValidation(false);
                                                     }
@@ -562,7 +568,7 @@ export default function SignupPage() {
                                     borderBottom: '2px solid #f1f5f9',
                                     paddingBottom: '0.5rem'
                                 }}>
-                                    🏥 Clinic Information
+                                    Clinic Information
                                 </h3>
 
                                 <div style={{ marginBottom: '1.25rem' }}>
@@ -650,7 +656,19 @@ export default function SignupPage() {
                                         alignItems: 'center',
                                         gap: '0.5rem'
                                     }}>
-                                        <span>ℹ️</span>
+                                        <span style={{
+                                            width: '20px',
+                                            height: '20px',
+                                            backgroundColor: '#007AFF',
+                                            borderRadius: '50%',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            fontSize: '0.75rem',
+                                            color: 'white',
+                                            fontWeight: '700',
+                                            flexShrink: 0
+                                        }}>i</span>
                                         <span>We&apos;ll help you complete your clinic profile after you create your account.</span>
                                     </p>
                                 </div>
@@ -661,7 +679,7 @@ export default function SignupPage() {
                                 disabled={loading}
                                 style={{
                                     width: '100%',
-                                    backgroundColor: loading ? '#94a3b8' : '#2563eb',
+                                    backgroundColor: loading ? '#94a3b8' : '#007AFF',
                                     color: 'white',
                                     fontWeight: '600',
                                     fontSize: '1rem',
@@ -676,12 +694,14 @@ export default function SignupPage() {
                                 }}
                                 onMouseEnter={(e) => {
                                     if (!loading) {
-                                        e.currentTarget.style.backgroundColor = '#1d4ed8';
+                                        e.currentTarget.style.backgroundColor = '#0051D0';
+                                        e.currentTarget.style.transform = 'translateY(-1px)';
                                     }
                                 }}
                                 onMouseLeave={(e) => {
                                     if (!loading) {
-                                        e.currentTarget.style.backgroundColor = '#2563eb';
+                                        e.currentTarget.style.backgroundColor = '#007AFF';
+                                        e.currentTarget.style.transform = 'translateY(0)';
                                     }
                                 }}
                             >
@@ -708,7 +728,7 @@ export default function SignupPage() {
                                     <Link
                                         href="/login"
                                         style={{
-                                            color: '#2563eb',
+                                            color: '#007AFF',
                                             textDecoration: 'none',
                                             fontWeight: '600'
                                         }}

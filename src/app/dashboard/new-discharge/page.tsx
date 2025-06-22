@@ -321,7 +321,7 @@ export default function NewDischargePage() {
                         <div style={{
                             width: '24px',
                             height: '24px',
-                            backgroundColor: '#2563eb',
+                            backgroundColor: '#007AFF',
                             borderRadius: '6px',
                             display: 'flex',
                             alignItems: 'center',
@@ -377,7 +377,7 @@ export default function NewDischargePage() {
                             <div style={{
                                 width: '24px',
                                 height: '24px',
-                                backgroundColor: '#2563eb',
+                                backgroundColor: '#007AFF',
                                 borderRadius: '6px',
                                 display: 'flex',
                                 alignItems: 'center',
@@ -422,7 +422,7 @@ export default function NewDischargePage() {
                             <div style={{
                                 width: '24px',
                                 height: '24px',
-                                backgroundColor: '#2563eb',
+                                backgroundColor: '#007AFF',
                                 borderRadius: '6px',
                                 display: 'flex',
                                 alignItems: 'center',
@@ -568,7 +568,7 @@ export default function NewDischargePage() {
                                 <div style={{
                                     width: '24px',
                                     height: '24px',
-                                    backgroundColor: '#2563eb',
+                                    backgroundColor: '#007AFF',
                                     borderRadius: '6px',
                                     display: 'flex',
                                     alignItems: 'center',
@@ -585,7 +585,7 @@ export default function NewDischargePage() {
                             <button
                                 onClick={handleAddMedication}
                                 style={{
-                                    backgroundColor: '#2563eb',
+                                    backgroundColor: '#007AFF',
                                     color: 'white',
                                     border: 'none',
                                     padding: '0.75rem 1.5rem',
@@ -598,8 +598,8 @@ export default function NewDischargePage() {
                                     alignItems: 'center',
                                     gap: '0.5rem'
                                 }}
-                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1d4ed8'}
-                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#0056CC'}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#007AFF'}
                             >
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                     <line x1="12" y1="5" x2="12" y2="19" />
@@ -627,17 +627,61 @@ export default function NewDischargePage() {
                                 </p>
                             </div>
                         ) : (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                {medications.map((medication, index) => (
-                                    <MedicationForm
-                                        key={index}
-                                        medication={medication}
-                                        index={index}
-                                        onUpdate={handleUpdateMedication}
-                                        onRemove={handleRemoveMedication}
-                                    />
-                                ))}
-                            </div>
+                            <>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                    {medications.map((medication, index) => (
+                                        <MedicationForm
+                                            key={index}
+                                            medication={medication}
+                                            index={index}
+                                            onUpdate={handleUpdateMedication}
+                                            onRemove={handleRemoveMedication}
+                                        />
+                                    ))}
+                                </div>
+
+                                {/* Secondary Add Another Medication Button */}
+                                <div style={{
+                                    marginTop: '1.5rem',
+                                    paddingTop: '1.5rem',
+                                    borderTop: '1px solid #f1f5f9',
+                                    textAlign: 'center'
+                                }}>
+                                    <button
+                                        onClick={handleAddMedication}
+                                        style={{
+                                            backgroundColor: 'transparent',
+                                            color: '#007AFF',
+                                            border: '1px solid #007AFF',
+                                            padding: '0.75rem 1.5rem',
+                                            borderRadius: '8px',
+                                            fontSize: '0.875rem',
+                                            fontWeight: '500',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s ease',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.5rem',
+                                            margin: '0 auto',
+                                            fontFamily: 'Nunito, sans-serif'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.backgroundColor = '#007AFF';
+                                            e.currentTarget.style.color = 'white';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.backgroundColor = 'transparent';
+                                            e.currentTarget.style.color = '#007AFF';
+                                        }}
+                                    >
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <line x1="12" y1="5" x2="12" y2="19" />
+                                            <line x1="5" y1="12" x2="19" y2="12" />
+                                        </svg>
+                                        Add Another Medication
+                                    </button>
+                                </div>
+                            </>
                         )}
                     </div>
                 )}
@@ -894,7 +938,7 @@ export default function NewDischargePage() {
                         }}>
                             <button
                                 style={{
-                                    backgroundColor: '#2563eb',
+                                    backgroundColor: '#007AFF',
                                     color: 'white',
                                     border: 'none',
                                     padding: '0.75rem 2rem',
@@ -907,8 +951,8 @@ export default function NewDischargePage() {
                                     alignItems: 'center',
                                     gap: '0.5rem'
                                 }}
-                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1d4ed8'}
-                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#0056CC'}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#007AFF'}
                                 onClick={handleAddMedication}
                             >
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

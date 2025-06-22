@@ -1,25 +1,313 @@
-// src/app/dashboard/discharge-success/page.tsx
+// src/app/dashboard/discharge-success/page.tsx - Revamped Layout
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { doc, getDoc } from 'firebase/firestore';
+import { useAuth } from '@/hooks/useAuth';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { Discharge } from '@/types/discharge';
 import { db } from '@/lib/firebase';
 import { COLLECTIONS } from '@/types/firestore';
+import DischargeSummary from '@/components/DischargeSummary';
 
-// Separate component that uses useSearchParams
+// Loading component
+function LoadingSpinner() {
+    return (
+        <div style={{
+            minHeight: '100vh',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: '#f8fafc',
+            fontFamily: 'Nunito, sans-serif'
+        }}>
+            <div style={{ textAlign: 'center' }}>
+                <div style={{
+                    width: '48px',
+                    height: '48px',
+                    border: '3px solid #e2e8f0',
+                    borderTop: '3px solid #007AFF',
+                    borderRadius: '50%',
+                    animation: 'spin 1s linear infinite',
+                    margin: '0 auto 1rem auto'
+                }} />
+                <p style={{
+                    color: '#64748b',
+                    fontSize: '1rem',
+                    fontWeight: '400'
+                }}>
+                    Loading discharge...
+                </p>
+            </div>
+        </div>
+    );
+}
+
+// Error component
+function ErrorDisplay({ error }: { error: string }) {
+    return (
+        <div style={{
+            minHeight: '100vh',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: '#f8fafc',
+            fontFamily: 'Nunito, sans-serif',
+            padding: '1rem'
+        }}>
+            <div style={{
+                textAlign: 'center',
+                maxWidth: '400px'
+            }}>
+                <div style={{
+                    width: '64px',
+                    height: '64px',
+                    backgroundColor: '#fee2e2',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    margin: '0 auto 1rem auto',
+                    fontSize: '1.5rem',
+                    color: '#dc2626'
+                }}>
+                    ⚠️
+                </div>
+                <h2 style={{
+                    fontSize: '1.5rem',
+                    fontWeight: '700',
+                    color: '#dc2626',
+                    marginBottom: '0.5rem'
+                }}>
+                    Error
+                </h2>
+                <p style={{
+                    color: '#64748b',
+                    marginBottom: '1.5rem',
+                    fontSize: '1rem'
+                }}>
+                    {error}
+                </p>
+                <Link
+                    href="/dashboard"
+                    style={{
+                        backgroundColor: '#007AFF',
+                        color: 'white',
+                        padding: '0.75rem 1.5rem',
+                        borderRadius: '8px',
+                        textDecoration: 'none',
+                        fontWeight: '600',
+                        display: 'inline-block',
+                        transition: 'background-color 0.2s ease'
+                    }}
+                >
+                    Back to Dashboard
+                </Link>
+            </div>
+        </div>
+    );
+}
+
+// Success actions header
+function SuccessActions({ onPrint, onDownload, isDownloading }: {
+    onPrint: () => void;
+    onDownload: () => void;
+    isDownloading: boolean;
+}) {
+    return (
+        <div style={{
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            padding: '2rem',
+            marginBottom: '2rem',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+            border: '1px solid #e2e8f0',
+            textAlign: 'center'
+        }} className="no-print">
+            <div style={{
+                width: '64px',
+                height: '64px',
+                backgroundColor: '#34C759',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 1.5rem auto',
+                fontSize: '1.5rem',
+                color: 'white'
+            }}>
+                ✓
+            </div>
+
+            <h1 style={{
+                fontSize: '1.5rem',
+                fontWeight: '700',
+                color: '#1e293b',
+                marginBottom: '1rem',
+                fontFamily: 'Nunito, sans-serif'
+            }}>
+                Discharge Summary Created!
+            </h1>
+
+            {/* Action Buttons */}
+            <div style={{
+                display: 'flex',
+                gap: '1rem',
+                justifyContent: 'center',
+                flexWrap: 'wrap',
+                marginBottom: '1rem'
+            }}>
+                <button
+                    onClick={onPrint}
+                    style={{
+                        backgroundColor: '#6366f1',
+                        color: 'white',
+                        border: 'none',
+                        padding: '0.75rem 1.5rem',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontWeight: '600',
+                        fontFamily: 'Nunito, sans-serif',
+                        fontSize: '0.875rem',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        transition: 'background-color 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#4f46e5'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#6366f1'}
+                >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="6,9 6,2 18,2 18,9" />
+                        <path d="M6,18H4a2,2,0,0,1-2-2V11a2,2,0,0,1,2-2H20a2,2,0,0,1,2,2v5a2,2,0,0,1-2,2H18" />
+                        <rect x="6" y="14" width="12" height="8" />
+                    </svg>
+                    Print
+                </button>
+
+                <button
+                    onClick={onDownload}
+                    disabled={isDownloading}
+                    style={{
+                        backgroundColor: isDownloading ? '#9ca3af' : '#f59e0b',
+                        color: 'white',
+                        border: 'none',
+                        padding: '0.75rem 1.5rem',
+                        borderRadius: '8px',
+                        cursor: isDownloading ? 'not-allowed' : 'pointer',
+                        fontWeight: '600',
+                        fontFamily: 'Nunito, sans-serif',
+                        fontSize: '0.875rem',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        transition: 'background-color 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                        if (!isDownloading) {
+                            e.currentTarget.style.backgroundColor = '#d97706';
+                        }
+                    }}
+                    onMouseLeave={(e) => {
+                        if (!isDownloading) {
+                            e.currentTarget.style.backgroundColor = '#f59e0b';
+                        }
+                    }}
+                >
+                    {isDownloading ? (
+                        <div style={{
+                            width: '16px',
+                            height: '16px',
+                            border: '2px solid rgba(255,255,255,0.3)',
+                            borderTop: '2px solid white',
+                            borderRadius: '50%',
+                            animation: 'spin 1s linear infinite'
+                        }} />
+                    ) : (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                            <polyline points="7,10 12,15 17,10" />
+                            <line x1="12" y1="15" x2="12" y2="3" />
+                        </svg>
+                    )}
+                    {isDownloading ? 'Generating...' : 'Download PDF'}
+                </button>
+            </div>
+
+            <div style={{
+                display: 'flex',
+                gap: '1rem',
+                justifyContent: 'center',
+                flexWrap: 'wrap'
+            }}>
+                <Link
+                    href="/dashboard/new-discharge"
+                    style={{
+                        backgroundColor: '#007AFF',
+                        color: 'white',
+                        padding: '0.75rem 1.5rem',
+                        borderRadius: '8px',
+                        textDecoration: 'none',
+                        fontWeight: '600',
+                        fontFamily: 'Nunito, sans-serif',
+                        transition: 'background-color 0.2s ease',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.5rem'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#0056CC'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#007AFF'}
+                >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="12" y1="5" x2="12" y2="19" />
+                        <line x1="5" y1="12" x2="19" y2="12" />
+                    </svg>
+                    Create Another
+                </Link>
+                <Link
+                    href="/dashboard"
+                    style={{
+                        backgroundColor: '#f1f5f9',
+                        color: '#64748b',
+                        padding: '0.75rem 1.5rem',
+                        borderRadius: '8px',
+                        textDecoration: 'none',
+                        fontWeight: '600',
+                        fontFamily: 'Nunito, sans-serif',
+                        border: '1px solid #e2e8f0',
+                        transition: 'background-color 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = '#e2e8f0';
+                        e.currentTarget.style.color = '#374151';
+                    }}
+                    onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = '#f1f5f9';
+                        e.currentTarget.style.color = '#64748b';
+                    }}
+                >
+                    Back to Dashboard
+                </Link>
+            </div>
+        </div>
+    );
+}
+
+// Main content component that uses useSearchParams
 function DischargeSuccessContent() {
+    const { vetUser, clinic } = useAuth();
     const { loading: authLoading } = useRequireAuth();
     const searchParams = useSearchParams();
+    const printRef = useRef<HTMLDivElement>(null);
 
     const [discharge, setDischarge] = useState<Discharge | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [qrCodeUrl, setQrCodeUrl] = useState('');
     const [dischargeViewUrl, setDischargeViewUrl] = useState('');
+    const [isDownloading, setIsDownloading] = useState(false);
 
     const dischargeId = searchParams.get('id');
 
@@ -45,6 +333,8 @@ function DischargeSuccessContent() {
                         notes: data.notes,
                         vetId: data.vetId,
                         clinicId: data.clinicId,
+                        visitDate: data.visitDate?.toDate ? data.visitDate.toDate() : data.visitDate,
+                        diagnosis: data.diagnosis,
                         createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : data.createdAt,
                         updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : data.updatedAt,
                     };
@@ -77,89 +367,62 @@ function DischargeSuccessContent() {
         }
     }, [dischargeId, authLoading]);
 
+    const handlePrint = () => {
+        if (printRef.current) {
+            const printContent = printRef.current.innerHTML;
+            const originalContent = document.body.innerHTML;
+
+            document.body.innerHTML = printContent;
+            window.print();
+            document.body.innerHTML = originalContent;
+            window.location.reload(); // Reload to restore React functionality
+        }
+    };
+
+    const handleDownloadPDF = async () => {
+        setIsDownloading(true);
+
+        try {
+            // For now, we'll use the browser's print functionality
+            // html2pdf.js can be added later if needed
+            if (printRef.current) {
+                // Create a simple PDF-like experience using print
+                const printContent = printRef.current.innerHTML;
+                const originalContent = document.body.innerHTML;
+
+                document.body.innerHTML = printContent;
+                window.print();
+                document.body.innerHTML = originalContent;
+                window.location.reload();
+            }
+        } catch (error) {
+            console.error('Error generating PDF:', error);
+            alert('Failed to generate PDF. Please try printing instead.');
+        } finally {
+            setIsDownloading(false);
+        }
+    };
+
+    // Loading state
     if (authLoading || loading) {
-        return (
-            <div style={{
-                minHeight: '100vh',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: '#f8fafc'
-            }}>
-                <div style={{ textAlign: 'center' }}>
-                    <div style={{
-                        width: '48px',
-                        height: '48px',
-                        border: '3px solid #e2e8f0',
-                        borderTop: '3px solid #2563eb',
-                        borderRadius: '50%',
-                        animation: 'spin 1s linear infinite',
-                        margin: '0 auto 1rem auto'
-                    }} />
-                    <p style={{ color: '#64748b', fontSize: '1rem' }}>Loading discharge...</p>
-                </div>
-            </div>
-        );
+        return <LoadingSpinner />;
     }
 
+    // Error state
     if (error) {
-        return (
-            <div style={{
-                minHeight: '100vh',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: '#f8fafc'
-            }}>
-                <div style={{ textAlign: 'center' }}>
-                    <div style={{
-                        width: '64px',
-                        height: '64px',
-                        backgroundColor: '#fee2e2',
-                        borderRadius: '50%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        margin: '0 auto 1rem auto',
-                        fontSize: '1.5rem',
-                        color: '#dc2626'
-                    }}>
-                        ⚠️
-                    </div>
-                    <h2 style={{
-                        fontSize: '1.5rem',
-                        fontWeight: '700',
-                        color: '#dc2626',
-                        marginBottom: '0.5rem'
-                    }}>
-                        Error
-                    </h2>
-                    <p style={{ color: '#64748b', marginBottom: '1.5rem' }}>
-                        {error}
-                    </p>
-                    <Link
-                        href="/dashboard"
-                        style={{
-                            backgroundColor: '#007AFF',
-                            color: 'white',
-                            padding: '0.75rem 1.5rem',
-                            borderRadius: '8px',
-                            textDecoration: 'none',
-                            fontWeight: '600'
-                        }}
-                    >
-                        Back to Dashboard
-                    </Link>
-                </div>
-            </div>
-        );
+        return <ErrorDisplay error={error} />;
+    }
+
+    // No discharge found
+    if (!discharge) {
+        return <ErrorDisplay error="Discharge not found" />;
     }
 
     return (
         <div style={{
             minHeight: '100vh',
             backgroundColor: '#f8fafc',
-            fontFamily: 'Nunito, -apple-system, BlinkMacSystemFont, sans-serif'
+            fontFamily: 'Nunito, sans-serif'
         }}>
             {/* Main Content */}
             <main style={{
@@ -167,167 +430,57 @@ function DischargeSuccessContent() {
                 margin: '0 auto',
                 padding: '2rem'
             }}>
-                {/* Success Message */}
-                <div style={{
-                    backgroundColor: 'white',
-                    borderRadius: '12px',
-                    padding: '2rem',
-                    marginBottom: '2rem',
-                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-                    border: '1px solid #e2e8f0',
-                    textAlign: 'center'
-                }}>
-                    <div style={{
-                        width: '64px',
-                        height: '64px',
-                        backgroundColor: '#16a34a',
-                        borderRadius: '50%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        margin: '0 auto 1.5rem auto',
-                        fontSize: '1.5rem',
-                        color: 'white'
-                    }}>
-                        ✓
-                    </div>
+                {/* Success Actions - Only visible on screen */}
+                <SuccessActions
+                    onPrint={handlePrint}
+                    onDownload={handleDownloadPDF}
+                    isDownloading={isDownloading}
+                />
 
-                    <h2 style={{
-                        fontSize: '1.5rem',
-                        fontWeight: '700',
-                        color: '#1e293b',
-                        marginBottom: '0.5rem'
-                    }}>
-                        Discharge Summary Created!
-                    </h2>
-
-                    {discharge && (
-                        <p style={{
-                            fontSize: '1rem',
-                            color: '#64748b',
-                            marginBottom: '2rem'
-                        }}>
-                            Successfully created discharge for <strong>{discharge.pet.name}</strong> with {discharge.medications.length} medication{discharge.medications.length === 1 ? '' : 's'}.
-                        </p>
-                    )}
-
-                    {/* QR Code Section */}
-                    <div style={{
-                        padding: '2rem',
-                        backgroundColor: '#f8fafc',
-                        borderRadius: '8px',
-                        marginBottom: '2rem'
-                    }}>
-                        <h3 style={{
-                            fontSize: '1.25rem',
-                            fontWeight: '600',
-                            color: '#1e293b',
-                            marginBottom: '1rem'
-                        }}>
-                            Share with Pet Owner
-                        </h3>
-
-                        {qrCodeUrl && (
-                            <div style={{
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                gap: '1rem'
-                            }}>
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
-                                    src={qrCodeUrl}
-                                    alt="QR Code for discharge"
-                                    style={{
-                                        width: '200px',
-                                        height: '200px',
-                                        border: '1px solid #e2e8f0',
-                                        borderRadius: '8px'
-                                    }}
-                                />
-                                <p style={{
-                                    fontSize: '0.875rem',
-                                    color: '#64748b',
-                                    textAlign: 'center'
-                                }}>
-                                    Pet owners can scan this QR code to import the discharge into their PawScript mobile app
-                                </p>
-                            </div>
-                        )}
-
-                        {dischargeViewUrl && (
-                            <div style={{
-                                marginTop: '1rem',
-                                padding: '1rem',
-                                backgroundColor: 'white',
-                                borderRadius: '8px',
-                                border: '1px solid #e2e8f0'
-                            }}>
-                                <p style={{
-                                    fontSize: '0.875rem',
-                                    color: '#64748b',
-                                    marginBottom: '0.5rem'
-                                }}>
-                                    Direct link:
-                                </p>
-                                <code style={{
-                                    fontSize: '0.75rem',
-                                    color: '#1e293b',
-                                    backgroundColor: '#f1f5f9',
-                                    padding: '0.5rem',
-                                    borderRadius: '4px',
-                                    display: 'block',
-                                    wordBreak: 'break-all'
-                                }}>
-                                    {dischargeViewUrl}
-                                </code>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div style={{
-                        display: 'flex',
-                        gap: '1rem',
-                        justifyContent: 'center',
-                        flexWrap: 'wrap'
-                    }}>
-                        <Link
-                            href="/dashboard/new-discharge"
-                            style={{
-                                backgroundColor: '#007AFF',
-                                color: 'white',
-                                padding: '0.75rem 1.5rem',
-                                borderRadius: '8px',
-                                textDecoration: 'none',
-                                fontWeight: '600'
-                            }}
-                        >
-                            Create Another
-                        </Link>
-                        <Link
-                            href="/dashboard"
-                            style={{
-                                backgroundColor: '#f1f5f9',
-                                color: '#64748b',
-                                padding: '0.75rem 1.5rem',
-                                borderRadius: '8px',
-                                textDecoration: 'none',
-                                fontWeight: '600',
-                                border: '1px solid #e2e8f0'
-                            }}
-                        >
-                            Back to Dashboard
-                        </Link>
-                    </div>
-                </div>
+                {/* Discharge Summary - Following the new layout structure */}
+                <DischargeSummary
+                    ref={printRef}
+                    discharge={discharge}
+                    clinicName={clinic?.name}
+                    vetFirstName={vetUser?.firstName}
+                    vetLastName={vetUser?.lastName}
+                    clinicPhone={clinic?.phone}
+                    clinicAddress={clinic?.address ?
+                        `${clinic.address.street}, ${clinic.address.city}, ${clinic.address.state} ${clinic.address.zipCode}`
+                        : undefined
+                    }
+                    qrCodeUrl={qrCodeUrl}
+                    dischargeViewUrl={dischargeViewUrl}
+                />
             </main>
 
-            {/* Animation styles */}
+            {/* Animations and Print Styles */}
             <style jsx>{`
                 @keyframes spin {
                     0% { transform: rotate(0deg); }
                     100% { transform: rotate(360deg); }
+                }
+                
+                @media print {
+                    .no-print {
+                        display: none !important;
+                    }
+                    
+                    body {
+                        background: white !important;
+                    }
+                    
+                    main {
+                        max-width: none !important;
+                        margin: 0 !important;
+                        padding: 0 !important;
+                    }
+                }
+                
+                @media (max-width: 768px) {
+                    main {
+                        padding: 1rem !important;
+                    }
                 }
             `}</style>
         </div>
@@ -337,28 +490,7 @@ function DischargeSuccessContent() {
 // Main component with Suspense wrapper
 export default function DischargeSuccessPage() {
     return (
-        <Suspense fallback={
-            <div style={{
-                minHeight: '100vh',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: '#f8fafc'
-            }}>
-                <div style={{ textAlign: 'center' }}>
-                    <div style={{
-                        width: '48px',
-                        height: '48px',
-                        border: '3px solid #e2e8f0',
-                        borderTop: '3px solid #2563eb',
-                        borderRadius: '50%',
-                        animation: 'spin 1s linear infinite',
-                        margin: '0 auto 1rem auto'
-                    }} />
-                    <p style={{ color: '#64748b', fontSize: '1rem' }}>Loading...</p>
-                </div>
-            </div>
-        }>
+        <Suspense fallback={<LoadingSpinner />}>
             <DischargeSuccessContent />
         </Suspense>
     );
