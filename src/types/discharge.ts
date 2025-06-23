@@ -23,7 +23,7 @@ export interface Medication {
     startDate?: string;     // Optional for non-tapered meds
     endDate?: string;       // Optional for non-tapered meds
     instructions: string;   // Always present, auto-filled from template or manual
-    editable: boolean;      // Whether pet owner can adjust times in app
+    allowClientToAdjustTime: boolean;      // Whether pet owner can adjust times in app
     isTapered: boolean;
     taperStages: TaperStage[]; // Empty array for non-tapered meds
 }

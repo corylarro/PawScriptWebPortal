@@ -607,14 +607,15 @@ export default function MedicationForm({ medication, index, onUpdate, onRemove }
                                         }}>
                                             <input
                                                 type="checkbox"
-                                                checked={medication.editable}
-                                                onChange={(e) => updateMedication({ editable: e.target.checked })}
+                                                checked={medication.allowClientToAdjustTime}
+                                                onChange={(e) => updateMedication({ allowClientToAdjustTime: e.target.checked })}
                                                 style={{
                                                     width: '16px',
                                                     height: '16px',
                                                     accentColor: '#007AFF'
                                                 }}
                                             />
+
                                             Let pet owner adjust times in app
                                         </label>
                                     </div>
