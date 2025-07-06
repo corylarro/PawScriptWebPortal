@@ -43,18 +43,38 @@ const DischargeSummary = forwardRef<HTMLDivElement, DischargeSummaryProps>(
             return `${displayHour}:${minutes} ${ampm}`;
         };
 
-        const formatFrequency = (medication: Medication) => {
-            if (!medication.frequency || !medication.customTimes) return '';
-
-            const times = medication.customTimes.map(formatTime).join(', ');
-
-            if (medication.frequency === 0.5) {
-                return `Every other day at ${times}`;
-            } else if (medication.frequency === 1) {
-                return `Once daily at ${times}`;
+        // Function to get frequency label without times
+        const getFrequencyLabel = (frequency: number) => {
+            if (frequency === 0.5) {
+                return 'Every Other Day';
+            } else if (frequency === 1) {
+                return '1x/day';
             } else {
-                return `${medication.frequency}x/day at ${times}`;
+                return `${frequency}x/day`;
             }
+        };
+
+        // New function to format date ranges
+        const formatDateRange = (startDate?: string, endDate?: string) => {
+            if (!startDate && !endDate) return '';
+
+            const formatSingleDate = (date: string) => {
+                const d = new Date(date);
+                return d.toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric'
+                });
+            };
+
+            if (startDate && endDate) {
+                return `${formatSingleDate(startDate)} - ${formatSingleDate(endDate)}`;
+            } else if (startDate) {
+                return `Starting ${formatSingleDate(startDate)}`;
+            } else if (endDate) {
+                return `Until ${formatSingleDate(endDate)}`;
+            }
+            return '';
         };
 
         const formatDate = (date: Date | string | undefined) => {
@@ -501,7 +521,26 @@ const DischargeSummary = forwardRef<HTMLDivElement, DischargeSummaryProps>(
                                                     textTransform: 'uppercase',
                                                     letterSpacing: '0.05em'
                                                 }}>
-                                                    Schedule
+                                                    Frequency
+                                                </span>
+                                                <p style={{
+                                                    fontSize: '1rem',
+                                                    color: '#1e293b',
+                                                    margin: '0.25rem 0 0 0',
+                                                    fontWeight: '600'
+                                                }}>
+                                                    {medication.frequency && getFrequencyLabel(medication.frequency)}
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <span style={{
+                                                    fontSize: '0.75rem',
+                                                    fontWeight: '600',
+                                                    color: '#64748b',
+                                                    textTransform: 'uppercase',
+                                                    letterSpacing: '0.05em'
+                                                }}>
+                                                    Times
                                                 </span>
                                                 <p style={{
                                                     fontSize: '1rem',
@@ -509,7 +548,7 @@ const DischargeSummary = forwardRef<HTMLDivElement, DischargeSummaryProps>(
                                                     margin: '0.25rem 0 0 0',
                                                     fontWeight: '500'
                                                 }}>
-                                                    {formatFrequency(medication)}
+                                                    {medication.customTimes?.map(formatTime).join(', ') || 'Not specified'}
                                                 </p>
                                             </div>
                                             {(medication.startDate || medication.endDate) && (
@@ -528,13 +567,27 @@ const DischargeSummary = forwardRef<HTMLDivElement, DischargeSummaryProps>(
                                                         color: '#1e293b',
                                                         margin: '0.25rem 0 0 0'
                                                     }}>
-                                                        {medication.startDate && formatDate(medication.startDate)}
-                                                        {medication.startDate && medication.endDate && ' - '}
-                                                        {medication.endDate && formatDate(medication.endDate)}
+                                                        {formatDateRange(medication.startDate, medication.endDate)}
                                                     </p>
                                                 </div>
                                             )}
                                         </div>
+
+                                        {/* Special handling for Every Other Day - show dates */}
+                                        {medication.frequency === 0.5 && (
+                                            <div style={{
+                                                backgroundColor: '#fef3c7',
+                                                border: '1px solid #f59e0b',
+                                                borderRadius: '8px',
+                                                padding: '0.75rem',
+                                                fontSize: '0.875rem',
+                                                color: '#92400e'
+                                            }}>
+                                                <strong>Every Other Day Schedule:</strong> Give medication on alternating days.
+                                                {medication.startDate && ` Starting ${formatDate(medication.startDate)}.`}
+                                                {medication.endDate && ` Ending ${formatDate(medication.endDate)}.`}
+                                            </div>
+                                        )}
 
                                         <div>
                                             <span style={{
@@ -613,6 +666,22 @@ const DischargeSummary = forwardRef<HTMLDivElement, DischargeSummaryProps>(
                                                                 fontWeight: '600'
                                                             }}>
                                                                 {stage.dosage}
+                                                            </p>
+                                                        </div>
+                                                        <div>
+                                                            <span style={{
+                                                                fontSize: '0.625rem',
+                                                                fontWeight: '600',
+                                                                color: '#64748b'
+                                                            }}>
+                                                                FREQUENCY
+                                                            </span>
+                                                            <p style={{
+                                                                fontSize: '0.875rem',
+                                                                margin: '0.125rem 0 0 0',
+                                                                fontWeight: '600'
+                                                            }}>
+                                                                {getFrequencyLabel(stage.frequency)}
                                                             </p>
                                                         </div>
                                                         <div>

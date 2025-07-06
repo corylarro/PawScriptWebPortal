@@ -35,6 +35,18 @@ export default function NewDischargePage() {
     const [medications, setMedications] = useState<Medication[]>([]);
     const [saving, setSaving] = useState(false);
 
+    // Medication validation state
+    const [medicationValidation, setMedicationValidation] = useState<Record<number, boolean>>({});
+
+    const handleMedicationValidation = (index: number, isValid: boolean) => {
+        setMedicationValidation(prev => ({ ...prev, [index]: isValid }));
+    };
+
+    const allMedicationsValid = () => {
+        return Object.values(medicationValidation).every(isValid => isValid) &&
+            Object.keys(medicationValidation).length === medications.length;
+    };
+
     // Load pets when client is selected
     useEffect(() => {
         const loadClientPets = async () => {
@@ -112,12 +124,16 @@ export default function NewDischargePage() {
             startDate: '',
             endDate: '',
             instructions: '',
-            editable: true,
+            allowClientToAdjustTime: true,
             isTapered: false,
+            isEveryOtherDay: false, // ADD THIS LINE
             taperStages: []
+            // Note: totalDoses is undefined by default
         };
         setMedications([...medications, newMedication]);
     };
+
+
 
     const handleUpdateMedication = (index: number, updatedMedication: Medication) => {
         const updatedMedications = medications.map((med, i) =>
@@ -138,6 +154,12 @@ export default function NewDischargePage() {
             return;
         }
 
+        // Validation check
+        if (!allMedicationsValid()) {
+            alert('Please complete all required medication fields before creating discharge.');
+            return;
+        }
+
         // Validate that all medications have required fields
         const incompleteMediactions = medications.filter(med => !med.name || !med.instructions);
         if (incompleteMediactions.length > 0) {
@@ -150,29 +172,94 @@ export default function NewDischargePage() {
         try {
             console.log('Creating discharge document...');
 
-            // Clean medications data - remove undefined fields
+            // Clean medications data with mobile app requirements
             const cleanedMedications = medications.map(med => {
-                const cleanMed: Record<string, unknown> = {
-                    name: med.name,
-                    instructions: med.instructions,
-                    editable: med.editable,
-                    isTapered: med.isTapered,
-                    taperStages: med.taperStages || []
-                };
+                if (med.isTapered) {
+                    // TAPERED MEDICATION
+                    const cleanTaperStages = med.taperStages.map(stage => {
+                        // Calculate totalDoses for taper stage
+                        let stageTotalDoses: number | null = null;
 
-                // Only add fields that have values
-                if (med.dosage?.trim()) cleanMed.dosage = med.dosage;
-                if (med.frequency !== undefined) cleanMed.frequency = med.frequency;
-                if (med.times && med.times.length > 0) cleanMed.times = med.times;
-                if (med.customTimes && med.customTimes.length > 0) cleanMed.customTimes = med.customTimes;
-                if (med.startDate?.trim()) cleanMed.startDate = med.startDate;
-                if (med.endDate?.trim()) cleanMed.endDate = med.endDate;
-                if (med.customFrequency !== undefined) cleanMed.customFrequency = med.customFrequency;
+                        if (stage.isEveryOtherDay && stage.totalDoses) {
+                            // EOD stage - totalDoses is required
+                            stageTotalDoses = stage.totalDoses;
+                        } else if (!stage.isEveryOtherDay && stage.startDate && stage.endDate && stage.frequency) {
+                            // Daily stage - calculate from date range
+                            const start = new Date(stage.startDate);
+                            const end = new Date(stage.endDate);
+                            const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+                            stageTotalDoses = diffDays * stage.frequency;
+                        }
 
-                return cleanMed;
+                        return {
+                            startDate: stage.startDate,
+                            endDate: stage.endDate,
+                            dosage: stage.dosage,
+                            frequency: stage.frequency,
+                            times: stage.times || [],
+                            allowClientToAdjustTime: stage.allowClientToAdjustTime || false,
+                            // MOBILE APP REQUIREMENTS:
+                            isEveryOtherDay: stage.isEveryOtherDay || false, // Always include
+                            totalDoses: stageTotalDoses // Required for EOD, calculated for daily
+                        };
+                    });
+
+                    return {
+                        name: med.name,
+                        instructions: med.instructions,
+                        allowClientToAdjustTime: med.allowClientToAdjustTime || false,
+                        isTapered: true,
+                        isEveryOtherDay: false, // Always false for tapered meds
+                        totalDoses: null, // Always null for tapered (stages have their own)
+                        taperStages: cleanTaperStages,
+                        schemaVersion: 2
+                    };
+                } else {
+                    // SIMPLE MEDICATION
+                    const { startDate, endDate, frequency, isEveryOtherDay } = med;
+                    let calculatedTotalDoses: number | null = null;
+
+                    if (isEveryOtherDay) {
+                        // EOD medication - totalDoses is REQUIRED
+                        calculatedTotalDoses = med.totalDoses || null;
+                        if (!calculatedTotalDoses) {
+                            console.warn(`EOD medication ${med.name} missing totalDoses`);
+                        }
+                    } else if (startDate && endDate && frequency) {
+                        // Daily medication - auto-calculate from date range
+                        const start = new Date(startDate);
+                        const end = new Date(endDate);
+                        const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+                        calculatedTotalDoses = diffDays * frequency;
+                    } else if (med.totalDoses) {
+                        // Explicit totalDoses provided
+                        calculatedTotalDoses = med.totalDoses;
+                    }
+
+                    const cleanMed: Record<string, unknown> = {
+                        name: med.name,
+                        instructions: med.instructions,
+                        allowClientToAdjustTime: med.allowClientToAdjustTime || false,
+                        isTapered: false,
+                        // MOBILE APP REQUIREMENTS:
+                        frequency: frequency || 1, // Always include
+                        isEveryOtherDay: isEveryOtherDay || false, // Always include
+                        totalDoses: calculatedTotalDoses, // Required for EOD, optional for daily
+                        schemaVersion: 2
+                    };
+
+                    // Add optional fields only if they have values
+                    if (med.dosage?.trim()) cleanMed.dosage = med.dosage;
+                    if (med.times && med.times.length > 0) cleanMed.times = med.times;
+                    if (med.customTimes && med.customTimes.length > 0) cleanMed.customTimes = med.customTimes;
+                    if (med.startDate?.trim()) cleanMed.startDate = med.startDate;
+                    if (med.endDate?.trim()) cleanMed.endDate = med.endDate;
+
+                    return cleanMed;
+                }
             });
 
-            // Prepare discharge data - only include fields with values
+            // Prepare discharge data with mobile app requirements
             const dischargeData: Record<string, unknown> = {
                 pet: {
                     name: selectedPet.name,
@@ -182,7 +269,14 @@ export default function NewDischargePage() {
                 medications: cleanedMedications,
                 vetId: vetUser.id,
                 clinicId: clinic.id,
-                visitDate: new Date(visitInfo.visitDate),
+
+                // MOBILE APP HEADER REQUIREMENTS:
+                clinicName: clinic.name, // NEW - always include
+                vetPhone: clinic.phone || null, // NEW - include if available
+                vetFirstName: vetUser.firstName,
+                vetLastName: vetUser.lastName,
+
+                visitDate: new Date(visitInfo.visitDate + 'T12:00:00'),
                 diagnosis: visitInfo.diagnosis,
                 createdAt: new Date(),
                 updatedAt: new Date()
@@ -193,12 +287,16 @@ export default function NewDischargePage() {
                 dischargeData.notes = visitInfo.notes;
             }
 
-            console.log('Cleaned discharge data:', dischargeData);
+            console.log('Mobile-app-ready discharge data:', dischargeData);
 
             // Save to Firestore
             const docRef = await addDoc(collection(db, COLLECTIONS.DISCHARGES), dischargeData);
 
             console.log('Discharge created with ID:', docRef.id);
+            console.log('About to save discharge data:', dischargeData);
+            console.log('Clinic object:', clinic);
+            console.log('VetUser object:', vetUser);
+            
 
             // Navigate to success page with discharge ID
             router.push(`/dashboard/discharge-success?id=${docRef.id}`);
@@ -636,6 +734,7 @@ export default function NewDischargePage() {
                                             index={index}
                                             onUpdate={handleUpdateMedication}
                                             onRemove={handleRemoveMedication}
+                                            onValidate={handleMedicationValidation}
                                         />
                                     ))}
                                 </div>
@@ -738,7 +837,7 @@ export default function NewDischargePage() {
                                     🏥 Visit
                                 </h3>
                                 <p style={{ margin: '0', fontSize: '0.875rem', color: '#0c4a6e' }}>
-                                    {new Date(visitInfo.visitDate).toLocaleDateString('en-US', {
+                                    {new Date(visitInfo.visitDate + 'T12:00:00').toLocaleDateString('en-US', {
                                         month: 'short',
                                         day: 'numeric',
                                         year: 'numeric'
@@ -803,31 +902,31 @@ export default function NewDischargePage() {
 
                             <button
                                 style={{
-                                    backgroundColor: saving ? '#9ca3af' : '#16a34a',
+                                    backgroundColor: saving ? '#9ca3af' : (!allMedicationsValid() ? '#9ca3af' : '#16a34a'),
                                     color: 'white',
                                     border: 'none',
                                     padding: '0.75rem 2rem',
                                     borderRadius: '8px',
                                     fontSize: '0.875rem',
                                     fontWeight: '600',
-                                    cursor: saving ? 'not-allowed' : 'pointer',
+                                    cursor: saving || !allMedicationsValid() ? 'not-allowed' : 'pointer',
                                     transition: 'background-color 0.2s ease',
                                     display: 'flex',
                                     alignItems: 'center',
                                     gap: '0.5rem'
                                 }}
                                 onMouseEnter={(e) => {
-                                    if (!saving) {
+                                    if (!saving && allMedicationsValid()) {
                                         e.currentTarget.style.backgroundColor = '#15803d';
                                     }
                                 }}
                                 onMouseLeave={(e) => {
-                                    if (!saving) {
+                                    if (!saving && allMedicationsValid()) {
                                         e.currentTarget.style.backgroundColor = '#16a34a';
                                     }
                                 }}
                                 onClick={handleCreateDischarge}
-                                disabled={saving}
+                                disabled={saving || !allMedicationsValid()}
                             >
                                 {saving ? (
                                     <>
@@ -914,7 +1013,7 @@ export default function NewDischargePage() {
                                     🏥 Visit
                                 </h3>
                                 <p style={{ margin: '0', fontSize: '0.875rem', color: '#0c4a6e' }}>
-                                    {new Date(visitInfo.visitDate).toLocaleDateString('en-US', {
+                                    {new Date(visitInfo.visitDate + 'T12:00:00').toLocaleDateString('en-US', {
                                         month: 'short',
                                         day: 'numeric',
                                         year: 'numeric'

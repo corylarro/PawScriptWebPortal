@@ -1,4 +1,4 @@
-// src/types/discharge.ts - Updated with missing fields
+// src/types/discharge.ts - Updated with totalDoses field
 export interface Pet {
     name: string;
     species: string;
@@ -11,21 +11,26 @@ export interface TaperStage {
     dosage: string;    // e.g., "10mg", "5mg"
     frequency: number; // times per day
     times: string[];   // e.g., ["08:00", "20:00"]
+    allowClientToAdjustTime?: boolean; // allows adjusting times in app
+    totalDoses?: number; // For every other day or counted doses
+    isEveryOtherDay?: boolean; // Add this line for EOD support in taper stages
 }
 
 export interface Medication {
     name: string;
     dosage?: string;        // Only for non-tapered meds
-    frequency?: number;     // Only for non-tapered meds
+    frequency?: number;     // Integer frequency (1, 2, 3, etc.) - no more 0.5
     customFrequency?: number; // For custom frequency input
     times?: string[];       // Only for non-tapered meds
     customTimes?: string[]; // User-editable times
     startDate?: string;     // Optional for non-tapered meds
     endDate?: string;       // Optional for non-tapered meds
     instructions: string;   // Always present, auto-filled from template or manual
-    allowClientToAdjustTime: boolean;      // Whether pet owner can adjust times in app
+    allowClientToAdjustTime?: boolean;      // Whether pet owner can adjust times in app
     isTapered: boolean;
     taperStages: TaperStage[]; // Empty array for non-tapered meds
+    isEveryOtherDay?: boolean; // Explicit flag for every other day medications
+    totalDoses?: number;    // Total number of doses - always present in JSON (null if ongoing)
 }
 
 export interface Discharge {

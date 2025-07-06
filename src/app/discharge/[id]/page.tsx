@@ -1,4 +1,4 @@
-// src/app/discharge/[id]/page.tsx
+// src/app/discharge/[id]/page.tsx - Updated with new mobile app fields
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -13,6 +13,7 @@ import { getFrequencyOption } from '@/data/medicationTemplates';
 export default function PublicDischargePage() {
     const { id } = useParams();
     const [discharge, setDischarge] = useState<Discharge | null>(null);
+    const [dischargeRaw, setDischargeRaw] = useState<Record<string, unknown> | null>(null); // For accessing extra fields
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
@@ -31,11 +32,24 @@ export default function PublicDischargePage() {
 
                 if (docSnap.exists()) {
                     const data = docSnap.data();
+
+                    // Store raw data for mobile app fields
+                    setDischargeRaw(data);
+                    console.log('Raw discharge data for mobile app:', data);
+                    console.log('New fields check:', {
+                        clinicName: data.clinicName,
+                        vetFirstName: data.vetFirstName,
+                        vetLastName: data.vetLastName,
+                        vetPhone: data.vetPhone
+                    });
+
                     const dischargeData: Discharge = {
                         id: docSnap.id,
                         pet: data.pet,
                         medications: data.medications,
                         notes: data.notes,
+                        visitDate: data.visitDate?.toDate ? data.visitDate.toDate() : (data.visitDate ? new Date(data.visitDate) : undefined),
+                        diagnosis: data.diagnosis,
                         vetId: data.vetId,
                         clinicId: data.clinicId,
                         createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt),
@@ -43,6 +57,7 @@ export default function PublicDischargePage() {
                     };
 
                     console.log('Loaded discharge:', dischargeData);
+                    console.log('Raw discharge data for mobile app:', data);
                     setDischarge(dischargeData);
                 } else {
                     setError('Discharge summary not found');
@@ -206,6 +221,62 @@ export default function PublicDischargePage() {
                 margin: '0 auto',
                 padding: '1.5rem 1rem'
             }}>
+                {/* Clinic Information - NEW */}
+                {(typeof dischargeRaw?.clinicName === 'string' || typeof dischargeRaw?.vetFirstName === 'string' || typeof dischargeRaw?.vetLastName === 'string') && (
+                    <div style={{
+                        backgroundColor: 'white',
+                        borderRadius: '16px',
+                        padding: '1.5rem',
+                        marginBottom: '1.5rem',
+                        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+                        border: '1px solid #e2e8f0'
+                    }}>
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '1rem',
+                            marginBottom: '1rem'
+                        }}>
+                            <div style={{
+                                width: '48px',
+                                height: '48px',
+                                backgroundColor: '#34C759',
+                                borderRadius: '12px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '1.5rem'
+                            }}>
+                                🏥
+                            </div>
+                            <div>
+                                <h2 style={{
+                                    fontSize: '1.25rem',
+                                    fontWeight: '700',
+                                    color: '#1e293b',
+                                    margin: '0 0 0.25rem 0'
+                                }}>
+                                    {typeof dischargeRaw?.clinicName === 'string' ? dischargeRaw.clinicName : 'Veterinary Clinic'}
+                                </h2>
+                                <p style={{
+                                    fontSize: '0.875rem',
+                                    color: '#64748b',
+                                    margin: '0'
+                                }}>
+                                    {typeof dischargeRaw?.vetFirstName === 'string' && typeof dischargeRaw?.vetLastName === 'string' &&
+                                        `Dr. ${dischargeRaw.vetFirstName} ${dischargeRaw.vetLastName}`
+                                    }
+                                    {typeof dischargeRaw?.vetPhone === 'string' && (
+                                        <span style={{ marginLeft: '0.5rem' }}>
+                                            • {dischargeRaw.vetPhone}
+                                        </span>
+                                    )}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* Pet Information */}
                 <div style={{
                     backgroundColor: 'white',
@@ -260,7 +331,18 @@ export default function PublicDischargePage() {
                         paddingTop: '1rem',
                         borderTop: '1px solid #f1f5f9'
                     }}>
-                        Discharge Date: {formatDate(discharge?.createdAt.toISOString().split('T')[0] || '')}
+                        Visit Date: {formatDate(discharge?.visitDate ? discharge.visitDate.toISOString().split('T')[0] : discharge?.createdAt.toISOString().split('T')[0] || '')}
+                        {discharge?.diagnosis && (
+                            <div style={{
+                                fontSize: '0.875rem',
+                                color: '#64748b',
+                                textAlign: 'center',
+                                marginTop: '0.5rem',
+                                fontStyle: 'italic'
+                            }}>
+                                Reason for visit: {discharge.diagnosis}
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -334,7 +416,34 @@ export default function PublicDischargePage() {
                                             TAPERED
                                         </span>
                                     )}
+                                    {/* NEW: Every Other Day Badge */}
+                                    {medication.isEveryOtherDay && (
+                                        <span style={{
+                                            marginLeft: '0.5rem',
+                                            fontSize: '0.625rem',
+                                            backgroundColor: '#fef3c7',
+                                            color: '#d97706',
+                                            padding: '0.125rem 0.375rem',
+                                            borderRadius: '8px',
+                                            fontWeight: '500'
+                                        }}>
+                                            EVERY OTHER DAY
+                                        </span>
+                                    )}
                                 </h4>
+                                {/* NEW: Time Adjustment Badge */}
+                                {medication.allowClientToAdjustTime && (
+                                    <span style={{
+                                        fontSize: '0.625rem',
+                                        backgroundColor: '#dcfce7',
+                                        color: '#16a34a',
+                                        padding: '0.125rem 0.375rem',
+                                        borderRadius: '8px',
+                                        fontWeight: '500'
+                                    }}>
+                                        TIMES ADJUSTABLE
+                                    </span>
+                                )}
                             </div>
 
                             {/* Simple Medication */}
@@ -359,7 +468,7 @@ export default function PublicDischargePage() {
                                                 fontSize: '0.875rem',
                                                 color: '#1e293b'
                                             }}>
-                                                {medication.dosage}
+                                                {medication.dosage || 'As prescribed'}
                                             </div>
                                         </div>
                                         <div>
@@ -375,9 +484,28 @@ export default function PublicDischargePage() {
                                                 fontSize: '0.875rem',
                                                 color: '#1e293b'
                                             }}>
-                                                {formatFrequency(medication.frequency || 1)}
+                                                {medication.isEveryOtherDay ? 'Every other day' : formatFrequency(medication.frequency || 1)}
                                             </div>
                                         </div>
+                                        {/* NEW: Total Doses Display */}
+                                        {medication.totalDoses && (
+                                            <div>
+                                                <div style={{
+                                                    fontSize: '0.75rem',
+                                                    fontWeight: '600',
+                                                    color: '#64748b',
+                                                    marginBottom: '0.25rem'
+                                                }}>
+                                                    TOTAL DOSES
+                                                </div>
+                                                <div style={{
+                                                    fontSize: '0.875rem',
+                                                    color: '#1e293b'
+                                                }}>
+                                                    {medication.totalDoses}
+                                                </div>
+                                            </div>
+                                        )}
                                         {medication.customTimes && medication.customTimes.length > 0 && (
                                             <div>
                                                 <div style={{
@@ -465,12 +593,31 @@ export default function PublicDischargePage() {
                                             border: '1px solid #e2e8f0'
                                         }}>
                                             <div style={{
-                                                fontSize: '0.75rem',
-                                                fontWeight: '600',
-                                                color: '#7c3aed',
+                                                display: 'flex',
+                                                justifyContent: 'space-between',
+                                                alignItems: 'center',
                                                 marginBottom: '0.5rem'
                                             }}>
-                                                Stage {stageIndex + 1}: {formatDate(stage.startDate)} - {formatDate(stage.endDate)}
+                                                <div style={{
+                                                    fontSize: '0.75rem',
+                                                    fontWeight: '600',
+                                                    color: '#7c3aed'
+                                                }}>
+                                                    Stage {stageIndex + 1}: {formatDate(stage.startDate)} - {formatDate(stage.endDate)}
+                                                </div>
+                                                {/* NEW: EOD Badge for Taper Stages */}
+                                                {stage.isEveryOtherDay && (
+                                                    <span style={{
+                                                        fontSize: '0.625rem',
+                                                        backgroundColor: '#fef3c7',
+                                                        color: '#d97706',
+                                                        padding: '0.125rem 0.375rem',
+                                                        borderRadius: '8px',
+                                                        fontWeight: '500'
+                                                    }}>
+                                                        EOD
+                                                    </span>
+                                                )}
                                             </div>
                                             <div style={{
                                                 display: 'grid',
@@ -482,8 +629,14 @@ export default function PublicDischargePage() {
                                                     <span style={{ color: '#64748b' }}>Dosage:</span> {stage.dosage}
                                                 </div>
                                                 <div>
-                                                    <span style={{ color: '#64748b' }}>Frequency:</span> {formatFrequency(stage.frequency)}
+                                                    <span style={{ color: '#64748b' }}>Frequency:</span> {stage.isEveryOtherDay ? 'Every other day' : formatFrequency(stage.frequency)}
                                                 </div>
+                                                {/* NEW: Total Doses for Taper Stage */}
+                                                {stage.totalDoses && (
+                                                    <div>
+                                                        <span style={{ color: '#64748b' }}>Total:</span> {stage.totalDoses}
+                                                    </div>
+                                                )}
                                                 {stage.times.length > 0 && (
                                                     <div>
                                                         <span style={{ color: '#64748b' }}>Times:</span> {stage.times.join(', ')}
