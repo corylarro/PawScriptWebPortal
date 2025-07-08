@@ -1,4 +1,4 @@
-// src/components/DischargeSummary.tsx - Complete and Fixed
+// src/components/DischargeSummary.tsx - Mobile Responsive Version
 'use client';
 
 import { forwardRef } from 'react';
@@ -21,6 +21,7 @@ interface DischargeSummaryProps {
     clinicLogo?: string; // URL to uploaded clinic logo
     qrCodeUrl?: string; // QR code for scanning
     dischargeViewUrl?: string; // Direct link (unused but kept for consistency)
+    isMobile?: boolean; // Mobile responsive prop
 }
 
 const DischargeSummary = forwardRef<HTMLDivElement, DischargeSummaryProps>(
@@ -32,7 +33,8 @@ const DischargeSummary = forwardRef<HTMLDivElement, DischargeSummaryProps>(
         clinicPhone,
         clinicAddress,
         clinicLogo,
-        qrCodeUrl
+        qrCodeUrl,
+        isMobile = false
         // dischargeViewUrl is intentionally not destructured as it's not used
     }, ref) => {
         const formatTime = (time: string) => {
@@ -99,7 +101,7 @@ const DischargeSummary = forwardRef<HTMLDivElement, DischargeSummaryProps>(
                 style={{
                     backgroundColor: 'white',
                     borderRadius: '16px',
-                    padding: '2rem',
+                    padding: isMobile ? '1.5rem' : '2rem',
                     boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
                     border: '1px solid #e2e8f0',
                     fontFamily: 'Nunito, sans-serif',
@@ -111,20 +113,21 @@ const DischargeSummary = forwardRef<HTMLDivElement, DischargeSummaryProps>(
                 {/* Header Section - Clinic Info with Logo */}
                 <div style={{
                     borderBottom: '2px solid #007AFF',
-                    paddingBottom: '2rem',
-                    marginBottom: '2rem'
+                    paddingBottom: isMobile ? '1.5rem' : '2rem',
+                    marginBottom: isMobile ? '1.5rem' : '2rem'
                 }}>
                     <div style={{
                         display: 'flex',
-                        alignItems: 'flex-start',
-                        gap: '1.5rem',
+                        flexDirection: isMobile ? 'column' : 'row',
+                        alignItems: isMobile ? 'center' : 'flex-start',
+                        gap: isMobile ? '1rem' : '1.5rem',
                         marginBottom: '1rem'
                     }}>
                         {/* Logo Section */}
                         <div style={{
                             flexShrink: 0,
-                            width: '80px',
-                            height: '80px',
+                            width: isMobile ? '60px' : '80px',
+                            height: isMobile ? '60px' : '80px',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center'
@@ -133,8 +136,8 @@ const DischargeSummary = forwardRef<HTMLDivElement, DischargeSummaryProps>(
                                 <Image
                                     src={clinicLogo}
                                     alt={`${clinicName} logo`}
-                                    width={80}
-                                    height={80}
+                                    width={isMobile ? 60 : 80}
+                                    height={isMobile ? 60 : 80}
                                     style={{
                                         objectFit: 'contain',
                                         borderRadius: '8px'
@@ -142,8 +145,8 @@ const DischargeSummary = forwardRef<HTMLDivElement, DischargeSummaryProps>(
                                 />
                             ) : (
                                 <div style={{
-                                    width: '80px',
-                                    height: '80px',
+                                    width: isMobile ? '60px' : '80px',
+                                    height: isMobile ? '60px' : '80px',
                                     backgroundColor: '#007AFF',
                                     borderRadius: '12px',
                                     display: 'flex',
@@ -153,15 +156,15 @@ const DischargeSummary = forwardRef<HTMLDivElement, DischargeSummaryProps>(
                                     color: 'white'
                                 }}>
                                     <div style={{
-                                        fontSize: '1.5rem',
+                                        fontSize: isMobile ? '1.25rem' : '1.5rem',
                                         fontWeight: '700',
                                         marginBottom: '0.25rem'
                                     }}>
                                         <Image
                                             src="/images/logowhite.png"
                                             alt="PawScript Logo"
-                                            width={64}
-                                            height={64}
+                                            width={isMobile ? 48 : 64}
+                                            height={isMobile ? 48 : 64}
                                             style={{
                                                 objectFit: 'contain'
                                             }}
@@ -179,9 +182,12 @@ const DischargeSummary = forwardRef<HTMLDivElement, DischargeSummaryProps>(
                         </div>
 
                         {/* Clinic Information */}
-                        <div style={{ flex: 1 }}>
+                        <div style={{
+                            flex: 1,
+                            textAlign: isMobile ? 'center' : 'left'
+                        }}>
                             <h2 style={{
-                                fontSize: '1.75rem',
+                                fontSize: isMobile ? '1.5rem' : '1.75rem',
                                 fontWeight: '700',
                                 color: '#1e293b',
                                 marginBottom: '0.75rem',
@@ -191,7 +197,7 @@ const DischargeSummary = forwardRef<HTMLDivElement, DischargeSummaryProps>(
                             </h2>
 
                             <div style={{
-                                fontSize: '1rem',
+                                fontSize: isMobile ? '0.875rem' : '1rem',
                                 color: '#64748b',
                                 lineHeight: '1.6'
                             }}>
@@ -234,13 +240,13 @@ const DischargeSummary = forwardRef<HTMLDivElement, DischargeSummaryProps>(
                 {qrCodeUrl && (
                     <div style={{
                         display: 'grid',
-                        gridTemplateColumns: 'auto 1fr',
-                        gap: '2rem',
+                        gridTemplateColumns: isMobile ? '1fr' : 'auto 1fr',
+                        gap: isMobile ? '1.5rem' : '2rem',
                         alignItems: 'center',
                         backgroundColor: '#f8fafc',
-                        padding: '2rem',
+                        padding: isMobile ? '1.5rem' : '2rem',
                         borderRadius: '12px',
-                        marginBottom: '2rem',
+                        marginBottom: isMobile ? '1.5rem' : '2rem',
                         border: '1px solid #e2e8f0'
                     }}>
                         {/* QR Code */}
@@ -248,13 +254,14 @@ const DischargeSummary = forwardRef<HTMLDivElement, DischargeSummaryProps>(
                             display: 'flex',
                             flexDirection: 'column',
                             alignItems: 'center',
-                            gap: '0.75rem'
+                            gap: '0.75rem',
+                            order: isMobile ? 2 : 1
                         }}>
                             <Image
                                 src={qrCodeUrl}
                                 alt="QR Code for discharge"
-                                width={200}
-                                height={200}
+                                width={isMobile ? 160 : 200}
+                                height={isMobile ? 160 : 200}
                                 style={{
                                     border: '2px solid #e2e8f0',
                                     borderRadius: '12px',
@@ -274,33 +281,41 @@ const DischargeSummary = forwardRef<HTMLDivElement, DischargeSummaryProps>(
                         </div>
 
                         {/* QR Description */}
-                        <div>
+                        <div style={{
+                            order: isMobile ? 1 : 2
+                        }}>
                             <h4 style={{
-                                fontSize: '1.25rem',
+                                fontSize: isMobile ? '1.125rem' : '1.25rem',
                                 fontWeight: '600',
                                 color: '#1e293b',
                                 marginBottom: '1rem',
-                                margin: '0 0 1rem 0'
+                                margin: '0 0 1rem 0',
+                                textAlign: isMobile ? 'center' : 'left'
                             }}>
                                 Digital Medication Management
                             </h4>
                             <p style={{
-                                fontSize: '1rem',
+                                fontSize: isMobile ? '0.875rem' : '1rem',
                                 color: '#64748b',
                                 lineHeight: '1.6',
-                                marginBottom: '1rem'
+                                marginBottom: '1rem',
+                                textAlign: isMobile ? 'center' : 'left'
                             }}>
                                 Pet owners can scan this QR code with their PawScript mobile app to automatically import the complete medication schedule, set up reminders, and track their pet&apos;s progress.
                             </p>
                             <div style={{
-                                fontSize: '0.875rem',
+                                fontSize: isMobile ? '0.8rem' : '0.875rem',
                                 color: '#64748b',
                                 lineHeight: '1.5'
                             }}>
-                                <p style={{ margin: '0 0 0.5rem 0', fontWeight: '600' }}>Instructions:</p>
+                                <p style={{
+                                    margin: '0 0 0.5rem 0',
+                                    fontWeight: '600',
+                                    textAlign: isMobile ? 'center' : 'left'
+                                }}>Instructions:</p>
                                 <ol style={{
                                     margin: '0',
-                                    paddingLeft: '1.25rem',
+                                    paddingLeft: isMobile ? '1rem' : '1.25rem',
                                     listStyle: 'decimal'
                                 }}>
                                     <li>Download PawScript from the App Store</li>
@@ -315,10 +330,10 @@ const DischargeSummary = forwardRef<HTMLDivElement, DischargeSummaryProps>(
 
                 {/* Discharge Summary Header */}
                 <div style={{
-                    marginBottom: '2rem'
+                    marginBottom: isMobile ? '1.5rem' : '2rem'
                 }}>
                     <h3 style={{
-                        fontSize: '1.5rem',
+                        fontSize: isMobile ? '1.25rem' : '1.5rem',
                         fontWeight: '700',
                         color: '#1e293b',
                         marginBottom: '0.5rem'
@@ -326,7 +341,7 @@ const DischargeSummary = forwardRef<HTMLDivElement, DischargeSummaryProps>(
                         Discharge Summary
                     </h3>
                     <p style={{
-                        fontSize: '1rem',
+                        fontSize: isMobile ? '0.875rem' : '1rem',
                         color: '#64748b',
                         margin: '0'
                     }}>
@@ -337,13 +352,13 @@ const DischargeSummary = forwardRef<HTMLDivElement, DischargeSummaryProps>(
                 {/* Pet Information */}
                 <div style={{
                     backgroundColor: '#f8fafc',
-                    padding: '1.5rem',
+                    padding: isMobile ? '1.25rem' : '1.5rem',
                     borderRadius: '12px',
-                    marginBottom: '2rem',
+                    marginBottom: isMobile ? '1.5rem' : '2rem',
                     border: '1px solid #e2e8f0'
                 }}>
                     <h4 style={{
-                        fontSize: '1.125rem',
+                        fontSize: isMobile ? '1rem' : '1.125rem',
                         fontWeight: '600',
                         color: '#1e293b',
                         marginBottom: '1rem',
@@ -355,7 +370,7 @@ const DischargeSummary = forwardRef<HTMLDivElement, DischargeSummaryProps>(
                     </h4>
                     <div style={{
                         display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+                        gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(150px, 1fr))',
                         gap: '1rem'
                     }}>
                         <div>
@@ -369,7 +384,7 @@ const DischargeSummary = forwardRef<HTMLDivElement, DischargeSummaryProps>(
                                 Name
                             </span>
                             <p style={{
-                                fontSize: '1rem',
+                                fontSize: isMobile ? '0.875rem' : '1rem',
                                 fontWeight: '600',
                                 color: '#1e293b',
                                 margin: '0.25rem 0 0 0'
@@ -388,7 +403,7 @@ const DischargeSummary = forwardRef<HTMLDivElement, DischargeSummaryProps>(
                                 Species
                             </span>
                             <p style={{
-                                fontSize: '1rem',
+                                fontSize: isMobile ? '0.875rem' : '1rem',
                                 fontWeight: '600',
                                 color: '#1e293b',
                                 margin: '0.25rem 0 0 0'
@@ -408,7 +423,7 @@ const DischargeSummary = forwardRef<HTMLDivElement, DischargeSummaryProps>(
                                     Weight
                                 </span>
                                 <p style={{
-                                    fontSize: '1rem',
+                                    fontSize: isMobile ? '0.875rem' : '1rem',
                                     fontWeight: '600',
                                     color: '#1e293b',
                                     margin: '0.25rem 0 0 0'
@@ -430,7 +445,7 @@ const DischargeSummary = forwardRef<HTMLDivElement, DischargeSummaryProps>(
                                 Diagnosis / Reason for Visit
                             </span>
                             <p style={{
-                                fontSize: '1rem',
+                                fontSize: isMobile ? '0.875rem' : '1rem',
                                 color: '#1e293b',
                                 margin: '0.25rem 0 0 0',
                                 lineHeight: '1.5'
@@ -442,9 +457,9 @@ const DischargeSummary = forwardRef<HTMLDivElement, DischargeSummaryProps>(
                 </div>
 
                 {/* Medications */}
-                <div style={{ marginBottom: '2rem' }}>
+                <div style={{ marginBottom: isMobile ? '1.5rem' : '2rem' }}>
                     <h4 style={{
-                        fontSize: '1.25rem',
+                        fontSize: isMobile ? '1.125rem' : '1.25rem',
                         fontWeight: '600',
                         color: '#1e293b',
                         marginBottom: '1.5rem',
@@ -460,18 +475,20 @@ const DischargeSummary = forwardRef<HTMLDivElement, DischargeSummaryProps>(
                             <div key={index} style={{
                                 border: '1px solid #e2e8f0',
                                 borderRadius: '12px',
-                                padding: '1.5rem',
+                                padding: isMobile ? '1.25rem' : '1.5rem',
                                 backgroundColor: 'white',
                                 boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
                             }}>
                                 <div style={{
                                     display: 'flex',
+                                    flexDirection: isMobile ? 'column' : 'row',
                                     justifyContent: 'space-between',
-                                    alignItems: 'flex-start',
-                                    marginBottom: '1rem'
+                                    alignItems: isMobile ? 'flex-start' : 'flex-start',
+                                    marginBottom: '1rem',
+                                    gap: isMobile ? '0.75rem' : '0'
                                 }}>
                                     <h5 style={{
-                                        fontSize: '1.125rem',
+                                        fontSize: isMobile ? '1rem' : '1.125rem',
                                         fontWeight: '600',
                                         color: '#1e293b',
                                         margin: '0'
@@ -485,7 +502,9 @@ const DischargeSummary = forwardRef<HTMLDivElement, DischargeSummaryProps>(
                                                 color: '#7c3aed',
                                                 padding: '0.25rem 0.75rem',
                                                 borderRadius: '12px',
-                                                fontWeight: '500'
+                                                fontWeight: '500',
+                                                display: isMobile ? 'block' : 'inline',
+                                                marginTop: isMobile ? '0.5rem' : '0'
                                             }}>
                                                 TAPERED DOSING
                                             </span>
@@ -493,12 +512,13 @@ const DischargeSummary = forwardRef<HTMLDivElement, DischargeSummaryProps>(
                                     </h5>
                                     {medication.dosage && (
                                         <span style={{
-                                            fontSize: '1rem',
+                                            fontSize: isMobile ? '0.875rem' : '1rem',
                                             fontWeight: '600',
                                             color: '#007AFF',
                                             backgroundColor: '#f0f9ff',
                                             padding: '0.5rem 1rem',
-                                            borderRadius: '8px'
+                                            borderRadius: '8px',
+                                            alignSelf: isMobile ? 'flex-start' : 'auto'
                                         }}>
                                             {medication.dosage}
                                         </span>
@@ -510,7 +530,7 @@ const DischargeSummary = forwardRef<HTMLDivElement, DischargeSummaryProps>(
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                                         <div style={{
                                             display: 'grid',
-                                            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                                            gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(200px, 1fr))',
                                             gap: '1rem'
                                         }}>
                                             <div>
@@ -524,7 +544,7 @@ const DischargeSummary = forwardRef<HTMLDivElement, DischargeSummaryProps>(
                                                     Frequency
                                                 </span>
                                                 <p style={{
-                                                    fontSize: '1rem',
+                                                    fontSize: isMobile ? '0.875rem' : '1rem',
                                                     color: '#1e293b',
                                                     margin: '0.25rem 0 0 0',
                                                     fontWeight: '600'
@@ -543,7 +563,7 @@ const DischargeSummary = forwardRef<HTMLDivElement, DischargeSummaryProps>(
                                                     Times
                                                 </span>
                                                 <p style={{
-                                                    fontSize: '1rem',
+                                                    fontSize: isMobile ? '0.875rem' : '1rem',
                                                     color: '#1e293b',
                                                     margin: '0.25rem 0 0 0',
                                                     fontWeight: '500'
@@ -563,7 +583,7 @@ const DischargeSummary = forwardRef<HTMLDivElement, DischargeSummaryProps>(
                                                         Duration
                                                     </span>
                                                     <p style={{
-                                                        fontSize: '1rem',
+                                                        fontSize: isMobile ? '0.875rem' : '1rem',
                                                         color: '#1e293b',
                                                         margin: '0.25rem 0 0 0'
                                                     }}>
@@ -580,7 +600,7 @@ const DischargeSummary = forwardRef<HTMLDivElement, DischargeSummaryProps>(
                                                 border: '1px solid #f59e0b',
                                                 borderRadius: '8px',
                                                 padding: '0.75rem',
-                                                fontSize: '0.875rem',
+                                                fontSize: isMobile ? '0.8rem' : '0.875rem',
                                                 color: '#92400e'
                                             }}>
                                                 <strong>Every Other Day Schedule:</strong> Give medication on alternating days.
@@ -600,7 +620,7 @@ const DischargeSummary = forwardRef<HTMLDivElement, DischargeSummaryProps>(
                                                 Instructions
                                             </span>
                                             <p style={{
-                                                fontSize: '1rem',
+                                                fontSize: isMobile ? '0.875rem' : '1rem',
                                                 color: '#1e293b',
                                                 margin: '0.5rem 0 0 0',
                                                 lineHeight: '1.6'
@@ -630,13 +650,13 @@ const DischargeSummary = forwardRef<HTMLDivElement, DischargeSummaryProps>(
                                             {medication.taperStages?.map((stage: TaperStage, stageIndex: number) => (
                                                 <div key={stageIndex} style={{
                                                     backgroundColor: '#f8fafc',
-                                                    padding: '1rem',
+                                                    padding: isMobile ? '0.75rem' : '1rem',
                                                     borderRadius: '8px',
                                                     border: '1px solid #e2e8f0'
                                                 }}>
                                                     <div style={{
                                                         display: 'grid',
-                                                        gridTemplateColumns: 'auto repeat(auto-fit, minmax(120px, 1fr))',
+                                                        gridTemplateColumns: isMobile ? '1fr' : 'auto repeat(auto-fit, minmax(120px, 1fr))',
                                                         gap: '1rem',
                                                         alignItems: 'center'
                                                     }}>
@@ -648,7 +668,8 @@ const DischargeSummary = forwardRef<HTMLDivElement, DischargeSummaryProps>(
                                                             fontSize: '0.75rem',
                                                             fontWeight: '600',
                                                             textAlign: 'center',
-                                                            minWidth: '60px'
+                                                            minWidth: '60px',
+                                                            justifySelf: isMobile ? 'center' : 'auto'
                                                         }}>
                                                             Stage {stageIndex + 1}
                                                         </div>
@@ -661,7 +682,7 @@ const DischargeSummary = forwardRef<HTMLDivElement, DischargeSummaryProps>(
                                                                 DOSAGE
                                                             </span>
                                                             <p style={{
-                                                                fontSize: '0.875rem',
+                                                                fontSize: isMobile ? '0.8rem' : '0.875rem',
                                                                 margin: '0.125rem 0 0 0',
                                                                 fontWeight: '600'
                                                             }}>
@@ -677,7 +698,7 @@ const DischargeSummary = forwardRef<HTMLDivElement, DischargeSummaryProps>(
                                                                 FREQUENCY
                                                             </span>
                                                             <p style={{
-                                                                fontSize: '0.875rem',
+                                                                fontSize: isMobile ? '0.8rem' : '0.875rem',
                                                                 margin: '0.125rem 0 0 0',
                                                                 fontWeight: '600'
                                                             }}>
@@ -693,7 +714,7 @@ const DischargeSummary = forwardRef<HTMLDivElement, DischargeSummaryProps>(
                                                                 TIMES
                                                             </span>
                                                             <p style={{
-                                                                fontSize: '0.875rem',
+                                                                fontSize: isMobile ? '0.8rem' : '0.875rem',
                                                                 margin: '0.125rem 0 0 0',
                                                                 fontWeight: '500'
                                                             }}>
@@ -709,7 +730,7 @@ const DischargeSummary = forwardRef<HTMLDivElement, DischargeSummaryProps>(
                                                                 DATES
                                                             </span>
                                                             <p style={{
-                                                                fontSize: '0.875rem',
+                                                                fontSize: isMobile ? '0.8rem' : '0.875rem',
                                                                 margin: '0.125rem 0 0 0',
                                                                 fontWeight: '500'
                                                             }}>
@@ -732,7 +753,7 @@ const DischargeSummary = forwardRef<HTMLDivElement, DischargeSummaryProps>(
                                                 Instructions
                                             </span>
                                             <p style={{
-                                                fontSize: '1rem',
+                                                fontSize: isMobile ? '0.875rem' : '1rem',
                                                 color: '#1e293b',
                                                 margin: '0.5rem 0 0 0',
                                                 lineHeight: '1.6'
@@ -753,11 +774,11 @@ const DischargeSummary = forwardRef<HTMLDivElement, DischargeSummaryProps>(
                         backgroundColor: '#fffbeb',
                         border: '1px solid #f59e0b',
                         borderRadius: '12px',
-                        padding: '1.5rem',
-                        marginBottom: '2rem'
+                        padding: isMobile ? '1.25rem' : '1.5rem',
+                        marginBottom: isMobile ? '1.5rem' : '2rem'
                     }}>
                         <h4 style={{
-                            fontSize: '1.125rem',
+                            fontSize: isMobile ? '1rem' : '1.125rem',
                             fontWeight: '600',
                             color: '#92400e',
                             marginBottom: '0.75rem',
@@ -768,7 +789,7 @@ const DischargeSummary = forwardRef<HTMLDivElement, DischargeSummaryProps>(
                             📝 Additional Notes
                         </h4>
                         <p style={{
-                            fontSize: '1rem',
+                            fontSize: isMobile ? '0.875rem' : '1rem',
                             color: '#92400e',
                             margin: '0',
                             lineHeight: '1.6'
@@ -782,7 +803,7 @@ const DischargeSummary = forwardRef<HTMLDivElement, DischargeSummaryProps>(
                 <div style={{
                     borderTop: '1px solid #e2e8f0',
                     paddingTop: '1.5rem',
-                    marginTop: '2rem',
+                    marginTop: isMobile ? '1.5rem' : '2rem',
                     textAlign: 'center'
                 }}>
                     <div style={{
@@ -790,7 +811,7 @@ const DischargeSummary = forwardRef<HTMLDivElement, DischargeSummaryProps>(
                         alignItems: 'center',
                         justifyContent: 'center',
                         gap: '0.75rem',
-                        fontSize: '0.875rem',
+                        fontSize: isMobile ? '0.8rem' : '0.875rem',
                         color: '#94a3b8'
                     }}>
                         <div style={{
@@ -818,7 +839,7 @@ const DischargeSummary = forwardRef<HTMLDivElement, DischargeSummaryProps>(
                         <span style={{ fontWeight: '600' }}>Powered by PawScript</span>
                     </div>
                     <p style={{
-                        fontSize: '0.75rem',
+                        fontSize: isMobile ? '0.7rem' : '0.75rem',
                         color: '#94a3b8',
                         margin: '0.5rem 0 0 0'
                     }}>

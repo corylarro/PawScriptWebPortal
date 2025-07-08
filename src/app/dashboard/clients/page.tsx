@@ -10,8 +10,6 @@ import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { db } from '@/lib/firebase';
 import { COLLECTIONS } from '@/types/firestore';
 
-
-
 // Client interface with summary data
 interface ClientSummary {
     id: string;
@@ -40,11 +38,22 @@ export default function ClientListPage() {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [showInactive, setShowInactive] = useState(false);
+    const [isMobile, setIsMobile] = useState(false);
 
     // Pagination state
     const [hasMore, setHasMore] = useState(true);
     const [lastDoc, setLastDoc] = useState<DocumentSnapshot | null>(null);
     const [loadingMore, setLoadingMore] = useState(false);
+
+    // Check if mobile on mount
+    useEffect(() => {
+        const checkMobile = () => {
+            setIsMobile(window.innerWidth < 768);
+        };
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
 
     // Load initial clients
     useEffect(() => {
@@ -267,13 +276,14 @@ export default function ClientListPage() {
         <div style={{
             minHeight: '100vh',
             backgroundColor: '#f8fafc',
-            fontFamily: 'Nunito, -apple-system, BlinkMacSystemFont, sans-serif'
+            fontFamily: 'Nunito, -apple-system, BlinkMacSystemFont, sans-serif',
+            overflowX: 'hidden'
         }}>
             {/* Header */}
             <header style={{
                 backgroundColor: 'white',
                 borderBottom: '1px solid #e2e8f0',
-                padding: '1rem 2rem',
+                padding: isMobile ? '1rem' : '1rem 2rem',
                 position: 'sticky',
                 top: 0,
                 zIndex: 10,
@@ -284,14 +294,21 @@ export default function ClientListPage() {
                     margin: '0 auto',
                     display: 'flex',
                     justifyContent: 'space-between',
-                    alignItems: 'center'
+                    alignItems: 'center',
+                    flexWrap: isMobile ? 'wrap' : 'nowrap'
                 }}>
                     {/* Logo & Navigation */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: isMobile ? '1rem' : '2rem',
+                        width: isMobile ? '100%' : 'auto',
+                        justifyContent: isMobile ? 'space-between' : 'flex-start'
+                    }}>
                         <Link href="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', textDecoration: 'none' }}>
                             <div style={{
-                                width: '36px',
-                                height: '36px',
+                                width: isMobile ? '32px' : '36px',
+                                height: isMobile ? '32px' : '36px',
                                 position: 'relative',
                                 borderRadius: '8px',
                                 overflow: 'hidden'
@@ -304,7 +321,7 @@ export default function ClientListPage() {
                                 />
                             </div>
                             <span style={{
-                                fontSize: '1.25rem',
+                                fontSize: isMobile ? '1.125rem' : '1.25rem',
                                 fontWeight: '700',
                                 color: '#1e293b'
                             }}>
@@ -312,92 +329,164 @@ export default function ClientListPage() {
                             </span>
                         </Link>
 
-                        <nav style={{ display: 'flex', gap: '1.5rem' }}>
-                            <Link
-                                href="/dashboard"
-                                style={{
-                                    color: '#64748b',
-                                    textDecoration: 'none',
-                                    fontSize: '0.875rem',
-                                    fontWeight: '500'
-                                }}
-                            >
-                                Dashboard
-                            </Link>
-                            <Link
-                                href="/dashboard/clients"
-                                style={{
-                                    color: '#2563eb',
-                                    textDecoration: 'none',
-                                    fontSize: '0.875rem',
-                                    fontWeight: '600',
-                                    borderBottom: '2px solid #2563eb',
-                                    paddingBottom: '0.25rem'
-                                }}
-                            >
-                                Clients
-                            </Link>
-                            <Link
-                                href="/dashboard/patients"
-                                style={{
-                                    color: '#64748b',
-                                    textDecoration: 'none',
-                                    fontSize: '0.875rem',
-                                    fontWeight: '500'
-                                }}
-                            >
-                                Patients
-                            </Link>
-                            <Link
-                                href="/dashboard/new-discharge"
-                                style={{
-                                    color: '#64748b',
-                                    textDecoration: 'none',
-                                    fontSize: '0.875rem',
-                                    fontWeight: '500'
-                                }}
-                            >
-                                New Discharge
-                            </Link>
-                        </nav>
+                        {!isMobile && (
+                            <nav style={{ display: 'flex', gap: '1.5rem' }}>
+                                <Link
+                                    href="/dashboard"
+                                    style={{
+                                        color: '#64748b',
+                                        textDecoration: 'none',
+                                        fontSize: '0.875rem',
+                                        fontWeight: '500'
+                                    }}
+                                >
+                                    Dashboard
+                                </Link>
+                                <Link
+                                    href="/dashboard/clients"
+                                    style={{
+                                        color: '#2563eb',
+                                        textDecoration: 'none',
+                                        fontSize: '0.875rem',
+                                        fontWeight: '600',
+                                        borderBottom: '2px solid #2563eb',
+                                        paddingBottom: '0.25rem'
+                                    }}
+                                >
+                                    Clients
+                                </Link>
+                                <Link
+                                    href="/dashboard/patients"
+                                    style={{
+                                        color: '#64748b',
+                                        textDecoration: 'none',
+                                        fontSize: '0.875rem',
+                                        fontWeight: '500'
+                                    }}
+                                >
+                                    Patients
+                                </Link>
+                                <Link
+                                    href="/dashboard/new-discharge"
+                                    style={{
+                                        color: '#64748b',
+                                        textDecoration: 'none',
+                                        fontSize: '0.875rem',
+                                        fontWeight: '500'
+                                    }}
+                                >
+                                    New Discharge
+                                </Link>
+                            </nav>
+                        )}
                     </div>
 
                     {/* User Info */}
-                    <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.75rem'
-                    }}>
+                    {!isMobile && (
                         <div style={{
-                            width: '32px',
-                            height: '32px',
-                            backgroundColor: '#2563eb',
-                            borderRadius: '50%',
                             display: 'flex',
                             alignItems: 'center',
-                            justifyContent: 'center',
-                            color: 'white',
-                            fontSize: '0.875rem',
-                            fontWeight: '600'
+                            gap: '0.75rem'
                         }}>
-                            {vetUser?.firstName?.[0] || 'U'}
-                        </div>
-                        <div>
                             <div style={{
+                                width: '32px',
+                                height: '32px',
+                                backgroundColor: '#2563eb',
+                                borderRadius: '50%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: 'white',
                                 fontSize: '0.875rem',
-                                fontWeight: '600',
-                                color: '#1e293b'
+                                fontWeight: '600'
                             }}>
-                                Dr. {vetUser?.firstName} {vetUser?.lastName}
+                                {vetUser?.firstName?.[0] || 'U'}
                             </div>
-                            <div style={{
-                                fontSize: '0.75rem',
-                                color: '#64748b'
-                            }}>
-                                {clinic?.name}
+                            <div>
+                                <div style={{
+                                    fontSize: '0.875rem',
+                                    fontWeight: '600',
+                                    color: '#1e293b'
+                                }}>
+                                    Dr. {vetUser?.firstName} {vetUser?.lastName}
+                                </div>
+                                <div style={{
+                                    fontSize: '0.75rem',
+                                    color: '#64748b'
+                                }}>
+                                    {clinic?.name}
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    )}
+
+                    {/* Mobile Navigation */}
+                    {isMobile && (
+                        <div style={{
+                            width: '100%',
+                            marginTop: '1rem',
+                            borderTop: '1px solid #e2e8f0',
+                            paddingTop: '1rem'
+                        }}>
+                            <nav style={{
+                                display: 'flex',
+                                gap: '1rem',
+                                overflowX: 'auto',
+                                paddingBottom: '0.5rem'
+                            }}>
+                                <Link
+                                    href="/dashboard"
+                                    style={{
+                                        color: '#64748b',
+                                        textDecoration: 'none',
+                                        fontSize: '0.875rem',
+                                        fontWeight: '500',
+                                        whiteSpace: 'nowrap'
+                                    }}
+                                >
+                                    Dashboard
+                                </Link>
+                                <Link
+                                    href="/dashboard/clients"
+                                    style={{
+                                        color: '#2563eb',
+                                        textDecoration: 'none',
+                                        fontSize: '0.875rem',
+                                        fontWeight: '600',
+                                        borderBottom: '2px solid #2563eb',
+                                        paddingBottom: '0.25rem',
+                                        whiteSpace: 'nowrap'
+                                    }}
+                                >
+                                    Clients
+                                </Link>
+                                <Link
+                                    href="/dashboard/patients"
+                                    style={{
+                                        color: '#64748b',
+                                        textDecoration: 'none',
+                                        fontSize: '0.875rem',
+                                        fontWeight: '500',
+                                        whiteSpace: 'nowrap'
+                                    }}
+                                >
+                                    Patients
+                                </Link>
+                                <Link
+                                    href="/dashboard/new-discharge"
+                                    style={{
+                                        color: '#64748b',
+                                        textDecoration: 'none',
+                                        fontSize: '0.875rem',
+                                        fontWeight: '500',
+                                        whiteSpace: 'nowrap'
+                                    }}
+                                >
+                                    New Discharge
+                                </Link>
+                            </nav>
+                        </div>
+                    )}
                 </div>
             </header>
 
@@ -405,18 +494,20 @@ export default function ClientListPage() {
             <main style={{
                 maxWidth: '1200px',
                 margin: '0 auto',
-                padding: '2rem'
+                padding: isMobile ? '1rem' : '2rem'
             }}>
                 {/* Page Header */}
                 <div style={{
                     display: 'flex',
+                    flexDirection: isMobile ? 'column' : 'row',
                     justifyContent: 'space-between',
-                    alignItems: 'center',
-                    marginBottom: '2rem'
+                    alignItems: isMobile ? 'flex-start' : 'center',
+                    marginBottom: '2rem',
+                    gap: isMobile ? '1rem' : '0'
                 }}>
                     <div>
                         <h1 style={{
-                            fontSize: '2rem',
+                            fontSize: isMobile ? '1.5rem' : '2rem',
                             fontWeight: '700',
                             color: '#1e293b',
                             margin: '0 0 0.5rem 0'
@@ -424,7 +515,7 @@ export default function ClientListPage() {
                             Client Management
                         </h1>
                         <p style={{
-                            fontSize: '1rem',
+                            fontSize: isMobile ? '0.875rem' : '1rem',
                             color: '#64748b',
                             margin: '0'
                         }}>
@@ -453,7 +544,7 @@ export default function ClientListPage() {
                                 <line x1="12" y1="5" x2="12" y2="19" />
                                 <line x1="5" y1="12" x2="19" y2="12" />
                             </svg>
-                            New Discharge
+                            {isMobile ? 'New' : 'New Discharge'}
                         </Link>
                     </div>
                 </div>
@@ -461,19 +552,19 @@ export default function ClientListPage() {
                 {/* Stats Cards */}
                 <div style={{
                     display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                    gap: '1.5rem',
+                    gridTemplateColumns: isMobile ? 'repeat(auto-fit, minmax(120px, 1fr))' : 'repeat(auto-fit, minmax(200px, 1fr))',
+                    gap: isMobile ? '1rem' : '1.5rem',
                     marginBottom: '2rem'
                 }}>
                     <div style={{
                         backgroundColor: 'white',
-                        padding: '1.5rem',
+                        padding: isMobile ? '1rem' : '1.5rem',
                         borderRadius: '12px',
                         border: '1px solid #e2e8f0',
                         boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
                     }}>
                         <div style={{
-                            fontSize: '2rem',
+                            fontSize: isMobile ? '1.5rem' : '2rem',
                             fontWeight: '700',
                             color: '#2563eb',
                             marginBottom: '0.5rem'
@@ -481,7 +572,7 @@ export default function ClientListPage() {
                             {filteredClients.length}
                         </div>
                         <div style={{
-                            fontSize: '0.875rem',
+                            fontSize: isMobile ? '0.75rem' : '0.875rem',
                             color: '#64748b',
                             fontWeight: '600'
                         }}>
@@ -491,13 +582,13 @@ export default function ClientListPage() {
 
                     <div style={{
                         backgroundColor: 'white',
-                        padding: '1.5rem',
+                        padding: isMobile ? '1rem' : '1.5rem',
                         borderRadius: '12px',
                         border: '1px solid #e2e8f0',
                         boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
                     }}>
                         <div style={{
-                            fontSize: '2rem',
+                            fontSize: isMobile ? '1.5rem' : '2rem',
                             fontWeight: '700',
                             color: '#16a34a',
                             marginBottom: '0.5rem'
@@ -505,7 +596,7 @@ export default function ClientListPage() {
                             {filteredClients.filter(c => c.isActive).length}
                         </div>
                         <div style={{
-                            fontSize: '0.875rem',
+                            fontSize: isMobile ? '0.75rem' : '0.875rem',
                             color: '#64748b',
                             fontWeight: '600'
                         }}>
@@ -515,13 +606,13 @@ export default function ClientListPage() {
 
                     <div style={{
                         backgroundColor: 'white',
-                        padding: '1.5rem',
+                        padding: isMobile ? '1rem' : '1.5rem',
                         borderRadius: '12px',
                         border: '1px solid #e2e8f0',
                         boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
                     }}>
                         <div style={{
-                            fontSize: '2rem',
+                            fontSize: isMobile ? '1.5rem' : '2rem',
                             fontWeight: '700',
                             color: '#f59e0b',
                             marginBottom: '0.5rem'
@@ -529,7 +620,7 @@ export default function ClientListPage() {
                             {filteredClients.reduce((sum, c) => sum + c.petCount, 0)}
                         </div>
                         <div style={{
-                            fontSize: '0.875rem',
+                            fontSize: isMobile ? '0.75rem' : '0.875rem',
                             color: '#64748b',
                             fontWeight: '600'
                         }}>
@@ -541,7 +632,7 @@ export default function ClientListPage() {
                 {/* Search and Filters */}
                 <div style={{
                     backgroundColor: 'white',
-                    padding: '1.5rem',
+                    padding: isMobile ? '1rem' : '1.5rem',
                     borderRadius: '12px',
                     border: '1px solid #e2e8f0',
                     marginBottom: '1.5rem',
@@ -549,7 +640,7 @@ export default function ClientListPage() {
                 }}>
                     <div style={{
                         display: 'grid',
-                        gridTemplateColumns: '1fr auto',
+                        gridTemplateColumns: isMobile ? '1fr' : '1fr auto',
                         gap: '1rem',
                         alignItems: 'end'
                     }}>
@@ -568,7 +659,7 @@ export default function ClientListPage() {
                                     type="text"
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
-                                    placeholder="Search by name, email, phone, or pet name..."
+                                    placeholder={isMobile ? "Search clients..." : "Search by name, email, phone, or pet name..."}
                                     style={{
                                         width: '100%',
                                         padding: '0.75rem 2.5rem 0.75rem 1rem',
@@ -613,7 +704,8 @@ export default function ClientListPage() {
                                 fontWeight: '600',
                                 cursor: 'pointer',
                                 transition: 'all 0.2s ease',
-                                whiteSpace: 'nowrap'
+                                whiteSpace: 'nowrap',
+                                width: isMobile ? '100%' : 'auto'
                             }}
                         >
                             {showInactive ? 'Hide Inactive' : 'Show Inactive'}
@@ -632,19 +724,22 @@ export default function ClientListPage() {
                     {filteredClients.length === 0 ? (
                         <div style={{
                             textAlign: 'center',
-                            padding: '4rem 2rem',
+                            padding: isMobile ? '3rem 1rem' : '4rem 2rem',
                             color: '#6b7280'
                         }}>
                             <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>👥</div>
                             <h3 style={{
-                                fontSize: '1.25rem',
+                                fontSize: isMobile ? '1.125rem' : '1.25rem',
                                 fontWeight: '600',
                                 marginBottom: '0.5rem',
                                 color: '#374151'
                             }}>
                                 {searchTerm ? 'No clients found' : 'No clients yet'}
                             </h3>
-                            <p style={{ fontSize: '0.875rem' }}>
+                            <p style={{
+                                fontSize: '0.875rem',
+                                lineHeight: '1.5'
+                            }}>
                                 {searchTerm
                                     ? 'Try adjusting your search terms or check if the client is inactive.'
                                     : 'Start by creating your first discharge summary, which will automatically add the client.'
@@ -653,26 +748,28 @@ export default function ClientListPage() {
                         </div>
                     ) : (
                         <div>
-                            {/* Table Header */}
-                            <div style={{
-                                display: 'grid',
-                                gridTemplateColumns: '2fr 1.5fr 1fr 1fr auto',
-                                gap: '1rem',
-                                padding: '1rem 1.5rem',
-                                backgroundColor: '#f8fafc',
-                                borderBottom: '1px solid #e2e8f0',
-                                fontSize: '0.75rem',
-                                fontWeight: '600',
-                                color: '#64748b',
-                                textTransform: 'uppercase',
-                                letterSpacing: '0.05em'
-                            }}>
-                                <div>Client</div>
-                                <div>Contact</div>
-                                <div>Pets</div>
-                                <div>Status</div>
-                                <div></div>
-                            </div>
+                            {/* Table Header - Desktop Only */}
+                            {!isMobile && (
+                                <div style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: '2fr 1.5fr 1fr 1fr auto',
+                                    gap: '1rem',
+                                    padding: '1rem 1.5rem',
+                                    backgroundColor: '#f8fafc',
+                                    borderBottom: '1px solid #e2e8f0',
+                                    fontSize: '0.75rem',
+                                    fontWeight: '600',
+                                    color: '#64748b',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.05em'
+                                }}>
+                                    <div>Client</div>
+                                    <div>Contact</div>
+                                    <div>Pets</div>
+                                    <div>Status</div>
+                                    <div></div>
+                                </div>
+                            )}
 
                             {/* Client Rows */}
                             {filteredClients.map((client) => (
@@ -680,12 +777,12 @@ export default function ClientListPage() {
                                     key={client.id}
                                     href={`/dashboard/clients/${client.id}`}
                                     style={{
-                                        display: 'grid',
-                                        gridTemplateColumns: '2fr 1.5fr 1fr 1fr auto',
-                                        gap: '1rem',
-                                        padding: '1rem 1.5rem',
+                                        display: isMobile ? 'block' : 'grid',
+                                        gridTemplateColumns: isMobile ? 'none' : '2fr 1.5fr 1fr 1fr auto',
+                                        gap: isMobile ? '0' : '1rem',
+                                        padding: isMobile ? '1rem' : '1rem 1.5rem',
                                         borderBottom: '1px solid #f1f5f9',
-                                        alignItems: 'center',
+                                        alignItems: isMobile ? 'stretch' : 'center',
                                         transition: 'background-color 0.2s ease',
                                         textDecoration: 'none',
                                         color: 'inherit'
@@ -693,93 +790,196 @@ export default function ClientListPage() {
                                     onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f8fafc'}
                                     onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                                 >
-                                    <div>
-                                        <div style={{
-                                            fontSize: '0.875rem',
-                                            fontWeight: '600',
-                                            color: '#1e293b',
-                                            marginBottom: '0.25rem'
-                                        }}>
-                                            👤 {client.firstName} {client.lastName}
-                                        </div>
-                                        <div style={{
-                                            fontSize: '0.75rem',
-                                            color: '#94a3b8'
-                                        }}>
-                                            {client.address.city && client.address.state && (
-                                                <>Client since {formatDate(client.createdAt)}</>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <div style={{
-                                            fontSize: '0.75rem',
-                                            color: '#64748b',
-                                            marginBottom: '0.25rem'
-                                        }}>
-                                            {client.email}
-                                        </div>
-                                        <div style={{
-                                            fontSize: '0.75rem',
-                                            color: '#94a3b8'
-                                        }}>
-                                            {client.phone}
-                                        </div>
-                                        {client.address.city && client.address.state && (
+                                    {isMobile ? (
+                                        // Mobile Card Layout
+                                        <div>
                                             <div style={{
-                                                fontSize: '0.75rem',
-                                                color: '#94a3b8'
+                                                display: 'flex',
+                                                justifyContent: 'space-between',
+                                                alignItems: 'flex-start',
+                                                marginBottom: '0.75rem'
                                             }}>
-                                                {client.address.city}, {client.address.state}
+                                                <div>
+                                                    <div style={{
+                                                        fontSize: '1rem',
+                                                        fontWeight: '600',
+                                                        color: '#1e293b',
+                                                        marginBottom: '0.25rem'
+                                                    }}>
+                                                        👤 {client.firstName} {client.lastName}
+                                                    </div>
+                                                    <div style={{
+                                                        fontSize: '0.75rem',
+                                                        color: '#94a3b8'
+                                                    }}>
+                                                        Client since {formatDate(client.createdAt)}
+                                                    </div>
+                                                </div>
+                                                <span style={{
+                                                    backgroundColor: client.isActive ? '#dcfce7' : '#f3f4f6',
+                                                    color: client.isActive ? '#16a34a' : '#6b7280',
+                                                    fontSize: '0.75rem',
+                                                    fontWeight: '600',
+                                                    padding: '0.25rem 0.5rem',
+                                                    borderRadius: '12px'
+                                                }}>
+                                                    {client.isActive ? 'Active' : 'Inactive'}
+                                                </span>
                                             </div>
-                                        )}
-                                    </div>
 
-                                    <div style={{
-                                        fontSize: '0.875rem',
-                                        color: '#374151',
-                                        textAlign: 'center'
-                                    }}>
-                                        {client.petCount}
-                                        {client.lastVisitDate && (
                                             <div style={{
-                                                fontSize: '0.75rem',
-                                                color: '#94a3b8',
-                                                marginTop: '0.25rem'
+                                                marginBottom: '0.75rem'
                                             }}>
-                                                Last visit: {formatTimeAgo(client.lastVisitDate)}
+                                                <div style={{
+                                                    fontSize: '0.875rem',
+                                                    color: '#64748b',
+                                                    marginBottom: '0.25rem'
+                                                }}>
+                                                    {client.email}
+                                                </div>
+                                                <div style={{
+                                                    fontSize: '0.875rem',
+                                                    color: '#94a3b8'
+                                                }}>
+                                                    {client.phone}
+                                                </div>
+                                                {client.address.city && client.address.state && (
+                                                    <div style={{
+                                                        fontSize: '0.875rem',
+                                                        color: '#94a3b8'
+                                                    }}>
+                                                        {client.address.city}, {client.address.state}
+                                                    </div>
+                                                )}
                                             </div>
-                                        )}
-                                    </div>
 
-                                    <div style={{ textAlign: 'center' }}>
-                                        <span style={{
-                                            backgroundColor: client.isActive ? '#dcfce7' : '#f3f4f6',
-                                            color: client.isActive ? '#16a34a' : '#6b7280',
-                                            fontSize: '0.75rem',
-                                            fontWeight: '600',
-                                            padding: '0.25rem 0.5rem',
-                                            borderRadius: '12px'
-                                        }}>
-                                            {client.isActive ? 'Active' : 'Inactive'}
-                                        </span>
-                                    </div>
-
-                                    <div>
-                                        <div style={{
-                                            backgroundColor: '#f1f5f9',
-                                            color: '#64748b',
-                                            border: '1px solid #e2e8f0',
-                                            padding: '0.5rem 0.75rem',
-                                            borderRadius: '6px',
-                                            fontSize: '0.75rem',
-                                            fontWeight: '600',
-                                            transition: 'all 0.2s ease'
-                                        }}>
-                                            View Details →
+                                            <div style={{
+                                                display: 'flex',
+                                                justifyContent: 'space-between',
+                                                alignItems: 'center'
+                                            }}>
+                                                <div style={{
+                                                    fontSize: '0.875rem',
+                                                    color: '#374151'
+                                                }}>
+                                                    <span style={{ fontWeight: '600' }}>
+                                                        {client.petCount} {client.petCount === 1 ? 'pet' : 'pets'}
+                                                    </span>
+                                                    {client.lastVisitDate && (
+                                                        <div style={{
+                                                            fontSize: '0.75rem',
+                                                            color: '#94a3b8',
+                                                            marginTop: '0.25rem'
+                                                        }}>
+                                                            Last visit: {formatTimeAgo(client.lastVisitDate)}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div style={{
+                                                    backgroundColor: '#f1f5f9',
+                                                    color: '#64748b',
+                                                    border: '1px solid #e2e8f0',
+                                                    padding: '0.5rem 0.75rem',
+                                                    borderRadius: '6px',
+                                                    fontSize: '0.75rem',
+                                                    fontWeight: '600'
+                                                }}>
+                                                    View →
+                                                </div>
+                                            </div>
                                         </div>
-                                    </div>
+                                    ) : (
+                                        // Desktop Table Layout
+                                        <>
+                                            <div>
+                                                <div style={{
+                                                    fontSize: '0.875rem',
+                                                    fontWeight: '600',
+                                                    color: '#1e293b',
+                                                    marginBottom: '0.25rem'
+                                                }}>
+                                                    👤 {client.firstName} {client.lastName}
+                                                </div>
+                                                <div style={{
+                                                    fontSize: '0.75rem',
+                                                    color: '#94a3b8'
+                                                }}>
+                                                    {client.address.city && client.address.state && (
+                                                        <>Client since {formatDate(client.createdAt)}</>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <div style={{
+                                                    fontSize: '0.75rem',
+                                                    color: '#64748b',
+                                                    marginBottom: '0.25rem'
+                                                }}>
+                                                    {client.email}
+                                                </div>
+                                                <div style={{
+                                                    fontSize: '0.75rem',
+                                                    color: '#94a3b8'
+                                                }}>
+                                                    {client.phone}
+                                                </div>
+                                                {client.address.city && client.address.state && (
+                                                    <div style={{
+                                                        fontSize: '0.75rem',
+                                                        color: '#94a3b8'
+                                                    }}>
+                                                        {client.address.city}, {client.address.state}
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            <div style={{
+                                                fontSize: '0.875rem',
+                                                color: '#374151',
+                                                textAlign: 'center'
+                                            }}>
+                                                {client.petCount}
+                                                {client.lastVisitDate && (
+                                                    <div style={{
+                                                        fontSize: '0.75rem',
+                                                        color: '#94a3b8',
+                                                        marginTop: '0.25rem'
+                                                    }}>
+                                                        Last visit: {formatTimeAgo(client.lastVisitDate)}
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            <div style={{ textAlign: 'center' }}>
+                                                <span style={{
+                                                    backgroundColor: client.isActive ? '#dcfce7' : '#f3f4f6',
+                                                    color: client.isActive ? '#16a34a' : '#6b7280',
+                                                    fontSize: '0.75rem',
+                                                    fontWeight: '600',
+                                                    padding: '0.25rem 0.5rem',
+                                                    borderRadius: '12px'
+                                                }}>
+                                                    {client.isActive ? 'Active' : 'Inactive'}
+                                                </span>
+                                            </div>
+
+                                            <div>
+                                                <div style={{
+                                                    backgroundColor: '#f1f5f9',
+                                                    color: '#64748b',
+                                                    border: '1px solid #e2e8f0',
+                                                    padding: '0.5rem 0.75rem',
+                                                    borderRadius: '6px',
+                                                    fontSize: '0.75rem',
+                                                    fontWeight: '600',
+                                                    transition: 'all 0.2s ease'
+                                                }}>
+                                                    View Details →
+                                                </div>
+                                            </div>
+                                        </>
+                                    )}
                                 </Link>
                             ))}
 
@@ -805,7 +1005,9 @@ export default function ClientListPage() {
                                             display: 'flex',
                                             alignItems: 'center',
                                             gap: '0.5rem',
-                                            margin: '0 auto'
+                                            margin: '0 auto',
+                                            width: isMobile ? '100%' : 'auto',
+                                            justifyContent: 'center'
                                         }}
                                     >
                                         {loadingMore && (
@@ -827,7 +1029,7 @@ export default function ClientListPage() {
                 </div>
             </main>
 
-            {/* Spinning animation */}
+            {/* CSS for animations */}
             <style jsx>{`
                 @keyframes spin {
                     0% { transform: rotate(0deg); }

@@ -1,4 +1,4 @@
-// src/app/dashboard/discharge-success/page.tsx - Revamped Layout
+// src/app/dashboard/discharge-success/page.tsx - Mobile Responsive Version
 'use client';
 
 import { useState, useEffect, Suspense, useRef } from 'react';
@@ -21,7 +21,8 @@ function LoadingSpinner() {
             alignItems: 'center',
             justifyContent: 'center',
             backgroundColor: '#f8fafc',
-            fontFamily: 'Nunito, sans-serif'
+            fontFamily: 'Nunito, sans-serif',
+            padding: '1rem'
         }}>
             <div style={{ textAlign: 'center' }}>
                 <div style={{
@@ -111,38 +112,39 @@ function ErrorDisplay({ error }: { error: string }) {
 }
 
 // Success actions header
-function SuccessActions({ onPrint, onDownload, isDownloading }: {
+function SuccessActions({ onPrint, onDownload, isDownloading, isMobile }: {
     onPrint: () => void;
     onDownload: () => void;
     isDownloading: boolean;
+    isMobile: boolean;
 }) {
     return (
         <div style={{
             backgroundColor: 'white',
             borderRadius: '12px',
-            padding: '2rem',
+            padding: isMobile ? '1.5rem' : '2rem',
             marginBottom: '2rem',
             boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
             border: '1px solid #e2e8f0',
             textAlign: 'center'
         }} className="no-print">
             <div style={{
-                width: '64px',
-                height: '64px',
+                width: isMobile ? '48px' : '64px',
+                height: isMobile ? '48px' : '64px',
                 backgroundColor: '#34C759',
                 borderRadius: '50%',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 margin: '0 auto 1.5rem auto',
-                fontSize: '1.5rem',
+                fontSize: isMobile ? '1.25rem' : '1.5rem',
                 color: 'white'
             }}>
                 ✓
             </div>
 
             <h1 style={{
-                fontSize: '1.5rem',
+                fontSize: isMobile ? '1.25rem' : '1.5rem',
                 fontWeight: '700',
                 color: '#1e293b',
                 marginBottom: '1rem',
@@ -154,9 +156,9 @@ function SuccessActions({ onPrint, onDownload, isDownloading }: {
             {/* Action Buttons */}
             <div style={{
                 display: 'flex',
+                flexDirection: isMobile ? 'column' : 'row',
                 gap: '1rem',
                 justifyContent: 'center',
-                flexWrap: 'wrap',
                 marginBottom: '1rem'
             }}>
                 <button
@@ -173,8 +175,10 @@ function SuccessActions({ onPrint, onDownload, isDownloading }: {
                         fontSize: '0.875rem',
                         display: 'inline-flex',
                         alignItems: 'center',
+                        justifyContent: 'center',
                         gap: '0.5rem',
-                        transition: 'background-color 0.2s ease'
+                        transition: 'background-color 0.2s ease',
+                        width: isMobile ? '100%' : 'auto'
                     }}
                     onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#4f46e5'}
                     onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#6366f1'}
@@ -202,8 +206,10 @@ function SuccessActions({ onPrint, onDownload, isDownloading }: {
                         fontSize: '0.875rem',
                         display: 'inline-flex',
                         alignItems: 'center',
+                        justifyContent: 'center',
                         gap: '0.5rem',
-                        transition: 'background-color 0.2s ease'
+                        transition: 'background-color 0.2s ease',
+                        width: isMobile ? '100%' : 'auto'
                     }}
                     onMouseEnter={(e) => {
                         if (!isDownloading) {
@@ -238,9 +244,9 @@ function SuccessActions({ onPrint, onDownload, isDownloading }: {
 
             <div style={{
                 display: 'flex',
+                flexDirection: isMobile ? 'column' : 'row',
                 gap: '1rem',
-                justifyContent: 'center',
-                flexWrap: 'wrap'
+                justifyContent: 'center'
             }}>
                 <Link
                     href="/dashboard/new-discharge"
@@ -255,7 +261,9 @@ function SuccessActions({ onPrint, onDownload, isDownloading }: {
                         transition: 'background-color 0.2s ease',
                         display: 'inline-flex',
                         alignItems: 'center',
-                        gap: '0.5rem'
+                        justifyContent: 'center',
+                        gap: '0.5rem',
+                        width: isMobile ? '100%' : 'auto'
                     }}
                     onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#0056CC'}
                     onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#007AFF'}
@@ -277,7 +285,11 @@ function SuccessActions({ onPrint, onDownload, isDownloading }: {
                         fontWeight: '600',
                         fontFamily: 'Nunito, sans-serif',
                         border: '1px solid #e2e8f0',
-                        transition: 'background-color 0.2s ease'
+                        transition: 'background-color 0.2s ease',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: isMobile ? '100%' : 'auto'
                     }}
                     onMouseEnter={(e) => {
                         e.currentTarget.style.backgroundColor = '#e2e8f0';
@@ -308,8 +320,19 @@ function DischargeSuccessContent() {
     const [qrCodeUrl, setQrCodeUrl] = useState('');
     const [dischargeViewUrl, setDischargeViewUrl] = useState('');
     const [isDownloading, setIsDownloading] = useState(false);
+    const [isMobile, setIsMobile] = useState(false);
 
     const dischargeId = searchParams.get('id');
+
+    // Check if mobile on mount and resize
+    useEffect(() => {
+        const checkMobile = () => {
+            setIsMobile(window.innerWidth < 768);
+        };
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
 
     useEffect(() => {
         const loadDischarge = async () => {
@@ -422,19 +445,21 @@ function DischargeSuccessContent() {
         <div style={{
             minHeight: '100vh',
             backgroundColor: '#f8fafc',
-            fontFamily: 'Nunito, sans-serif'
+            fontFamily: 'Nunito, sans-serif',
+            overflowX: 'hidden'
         }}>
             {/* Main Content */}
             <main style={{
                 maxWidth: '800px',
                 margin: '0 auto',
-                padding: '2rem'
+                padding: isMobile ? '1rem' : '2rem'
             }}>
                 {/* Success Actions - Only visible on screen */}
                 <SuccessActions
                     onPrint={handlePrint}
                     onDownload={handleDownloadPDF}
                     isDownloading={isDownloading}
+                    isMobile={isMobile}
                 />
 
                 {/* Discharge Summary - Following the new layout structure */}
@@ -451,6 +476,7 @@ function DischargeSuccessContent() {
                     }
                     qrCodeUrl={qrCodeUrl}
                     dischargeViewUrl={dischargeViewUrl}
+                    isMobile={isMobile}
                 />
             </main>
 

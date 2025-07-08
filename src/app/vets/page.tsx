@@ -1,19 +1,34 @@
-// src/app/vets/page.tsx (POLISHED VERSION - Inline Styles Only)
+// src/app/vets/page.tsx (MOBILE RESPONSIVE VERSION)
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 
 export default function VetsPage() {
+    const [isMobile, setIsMobile] = useState(false);
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+    // Check if mobile on mount and resize
+    useEffect(() => {
+        const checkMobile = () => {
+            setIsMobile(window.innerWidth < 768);
+        };
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
+
     return (
         <div style={{
             minHeight: '100vh',
             backgroundColor: '#ffffff',
-            fontFamily: 'Nunito, -apple-system, BlinkMacSystemFont, sans-serif'
+            fontFamily: 'Nunito, -apple-system, BlinkMacSystemFont, sans-serif',
+            overflowX: 'hidden'
         }}>
             {/* Navigation */}
             <nav style={{
-                padding: '1rem 2rem',
+                padding: isMobile ? '1rem' : '1rem 2rem',
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
@@ -26,8 +41,8 @@ export default function VetsPage() {
                 {/* Logo */}
                 <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', textDecoration: 'none' }}>
                     <div style={{
-                        width: '40px',
-                        height: '40px',
+                        width: isMobile ? '32px' : '40px',
+                        height: isMobile ? '32px' : '40px',
                         position: 'relative',
                         borderRadius: '8px',
                         overflow: 'hidden'
@@ -40,7 +55,7 @@ export default function VetsPage() {
                         />
                     </div>
                     <span style={{
-                        fontSize: '1.5rem',
+                        fontSize: isMobile ? '1.25rem' : '1.5rem',
                         fontWeight: '700',
                         color: '#1e293b'
                     }}>
@@ -48,72 +63,165 @@ export default function VetsPage() {
                     </span>
                 </Link>
 
-                {/* Navigation Links */}
-                <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '2rem',
-                    flexWrap: 'wrap'
-                }}>
-                    <Link
-                        href="/"
+                {/* Desktop Navigation Links */}
+                {!isMobile && (
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '2rem'
+                    }}>
+                        <Link
+                            href="/"
+                            style={{
+                                color: '#6D6D72',
+                                textDecoration: 'none',
+                                fontWeight: '400',
+                                fontSize: '0.95rem'
+                            }}
+                        >
+                            For Pet Parents
+                        </Link>
+                        <Link
+                            href="/login"
+                            style={{
+                                color: '#007AFF',
+                                textDecoration: 'none',
+                                fontWeight: '600',
+                                fontSize: '0.95rem'
+                            }}
+                        >
+                            Login
+                        </Link>
+                        <Link
+                            href="/signup"
+                            style={{
+                                backgroundColor: '#007AFF',
+                                color: 'white',
+                                padding: '0.5rem 1rem',
+                                borderRadius: '8px',
+                                textDecoration: 'none',
+                                fontWeight: '600',
+                                fontSize: '0.95rem',
+                                border: 'none',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = '#0051D0';
+                                e.currentTarget.style.transform = 'translateY(-1px)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = '#007AFF';
+                                e.currentTarget.style.transform = 'translateY(0)';
+                            }}
+                        >
+                            Get Started
+                        </Link>
+                    </div>
+                )}
+
+                {/* Mobile Hamburger Button */}
+                {isMobile && (
+                    <button
+                        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                         style={{
-                            color: '#6D6D72',
-                            textDecoration: 'none',
-                            fontWeight: '400',
-                            fontSize: '0.95rem'
-                        }}
-                    >
-                        For Pet Parents
-                    </Link>
-                    <Link
-                        href="/login"
-                        style={{
-                            color: '#007AFF',
-                            textDecoration: 'none',
-                            fontWeight: '600',
-                            fontSize: '0.95rem'
-                        }}
-                    >
-                        Login
-                    </Link>
-                    <Link
-                        href="/signup"
-                        style={{
-                            backgroundColor: '#007AFF',
-                            color: 'white',
-                            padding: '0.5rem 1rem',
-                            borderRadius: '8px',
-                            textDecoration: 'none',
-                            fontWeight: '600',
-                            fontSize: '0.95rem',
+                            backgroundColor: 'transparent',
                             border: 'none',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s ease'
-                        }}
-                        onMouseEnter={(e) => {
-                            e.currentTarget.style.backgroundColor = '#0051D0';
-                            e.currentTarget.style.transform = 'translateY(-1px)';
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.backgroundColor = '#007AFF';
-                            e.currentTarget.style.transform = 'translateY(0)';
+                            padding: '0.5rem',
+                            cursor: 'pointer'
                         }}
                     >
-                        Get Started
-                    </Link>
-                </div>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6D6D72" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            {mobileMenuOpen ? (
+                                <>
+                                    <line x1="18" y1="6" x2="6" y2="18" />
+                                    <line x1="6" y1="6" x2="18" y2="18" />
+                                </>
+                            ) : (
+                                <>
+                                    <line x1="3" y1="6" x2="21" y2="6" />
+                                    <line x1="3" y1="12" x2="21" y2="12" />
+                                    <line x1="3" y1="18" x2="21" y2="18" />
+                                </>
+                            )}
+                        </svg>
+                    </button>
+                )}
             </nav>
+
+            {/* Mobile Navigation Menu */}
+            {isMobile && mobileMenuOpen && (
+                <div style={{
+                    backgroundColor: 'white',
+                    borderBottom: '1px solid #F2F2F7',
+                    padding: '1rem',
+                    position: 'sticky',
+                    top: '73px',
+                    zIndex: 40
+                }}>
+                    <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '1rem'
+                    }}>
+                        <Link
+                            href="/"
+                            onClick={() => setMobileMenuOpen(false)}
+                            style={{
+                                color: '#6D6D72',
+                                textDecoration: 'none',
+                                fontWeight: '400',
+                                fontSize: '1rem',
+                                padding: '0.5rem 0',
+                                borderBottom: '1px solid #F2F2F7'
+                            }}
+                        >
+                            For Pet Parents
+                        </Link>
+                        <Link
+                            href="/login"
+                            onClick={() => setMobileMenuOpen(false)}
+                            style={{
+                                color: '#007AFF',
+                                textDecoration: 'none',
+                                fontWeight: '600',
+                                fontSize: '1rem',
+                                padding: '0.5rem 0',
+                                borderBottom: '1px solid #F2F2F7'
+                            }}
+                        >
+                            Login
+                        </Link>
+                        <Link
+                            href="/signup"
+                            onClick={() => setMobileMenuOpen(false)}
+                            style={{
+                                backgroundColor: '#007AFF',
+                                color: 'white',
+                                padding: '0.75rem 1rem',
+                                borderRadius: '8px',
+                                textDecoration: 'none',
+                                fontWeight: '600',
+                                fontSize: '1rem',
+                                textAlign: 'center',
+                                display: 'block'
+                            }}
+                        >
+                            Get Started
+                        </Link>
+                    </div>
+                </div>
+            )}
 
             {/* Hero Section */}
             <div style={{
-                padding: 'clamp(3rem, 8vw, 6rem) 2rem clamp(2.5rem, 6vw, 5rem)',
+                padding: isMobile ? '3rem 1rem 2.5rem' : 'clamp(3rem, 8vw, 6rem) 2rem clamp(2.5rem, 6vw, 5rem)',
                 backgroundColor: '#FFFFFF',
                 textAlign: 'center'
             }}>
                 <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
                     <h1 style={{
-                        fontSize: 'clamp(2.5rem, 5vw, 3.75rem)',
+                        fontSize: isMobile ? '2.25rem' : 'clamp(2.5rem, 5vw, 3.75rem)',
                         fontWeight: '700',
                         color: '#1e293b',
                         marginBottom: '1.75rem',
@@ -126,7 +234,7 @@ export default function VetsPage() {
                     </h1>
 
                     <p style={{
-                        fontSize: 'clamp(1.125rem, 2.5vw, 1.5rem)',
+                        fontSize: isMobile ? '1.125rem' : 'clamp(1.125rem, 2.5vw, 1.5rem)',
                         color: '#6D6D72',
                         marginBottom: '3rem',
                         lineHeight: '1.5',
@@ -139,9 +247,10 @@ export default function VetsPage() {
 
                     <div style={{
                         display: 'flex',
+                        flexDirection: isMobile ? 'column' : 'row',
                         gap: '1.5rem',
                         justifyContent: 'center',
-                        flexWrap: 'wrap',
+                        alignItems: 'center',
                         marginBottom: '2rem'
                     }}>
                         <Link
@@ -150,15 +259,17 @@ export default function VetsPage() {
                                 display: 'inline-block',
                                 backgroundColor: '#007AFF',
                                 color: 'white',
-                                padding: '1.125rem 2.25rem',
+                                padding: isMobile ? '1rem 2rem' : '1.125rem 2.25rem',
                                 borderRadius: '14px',
                                 textDecoration: 'none',
                                 fontWeight: '600',
-                                fontSize: '1.125rem',
+                                fontSize: isMobile ? '1rem' : '1.125rem',
                                 boxShadow: '0 6px 20px rgba(0, 122, 255, 0.25)',
                                 border: 'none',
                                 cursor: 'pointer',
-                                transition: 'all 0.2s ease'
+                                transition: 'all 0.2s ease',
+                                width: isMobile ? '100%' : 'auto',
+                                maxWidth: isMobile ? '280px' : 'none'
                             }}
                             onMouseEnter={(e) => {
                                 e.currentTarget.style.backgroundColor = '#0051D0';
@@ -177,14 +288,16 @@ export default function VetsPage() {
                                 display: 'inline-block',
                                 backgroundColor: 'white',
                                 color: '#007AFF',
-                                padding: '1.125rem 2.25rem',
+                                padding: isMobile ? '1rem 2rem' : '1.125rem 2.25rem',
                                 borderRadius: '14px',
                                 textDecoration: 'none',
                                 fontWeight: '600',
-                                fontSize: '1.125rem',
+                                fontSize: isMobile ? '1rem' : '1.125rem',
                                 border: '2px solid #007AFF',
                                 cursor: 'pointer',
-                                transition: 'all 0.2s ease'
+                                transition: 'all 0.2s ease',
+                                width: isMobile ? '100%' : 'auto',
+                                maxWidth: isMobile ? '280px' : 'none'
                             }}
                             onMouseEnter={(e) => {
                                 e.currentTarget.style.backgroundColor = '#007AFF';
@@ -200,7 +313,7 @@ export default function VetsPage() {
                     </div>
 
                     <p style={{
-                        fontSize: '0.95rem',
+                        fontSize: isMobile ? '0.875rem' : '0.95rem',
                         color: '#6D6D72',
                         fontWeight: '400'
                     }}>
@@ -220,13 +333,13 @@ export default function VetsPage() {
 
             {/* Key Benefits Section */}
             <div style={{
-                padding: 'clamp(3rem, 8vw, 6rem) 2rem',
+                padding: isMobile ? '3rem 1rem' : 'clamp(3rem, 8vw, 6rem) 2rem',
                 backgroundColor: '#F8FAFC'
             }}>
                 <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-                    <div style={{ textAlign: 'center', marginBottom: '5rem' }}>
+                    <div style={{ textAlign: 'center', marginBottom: isMobile ? '3rem' : '5rem' }}>
                         <h2 style={{
-                            fontSize: 'clamp(2rem, 4vw, 2.75rem)',
+                            fontSize: isMobile ? '2rem' : 'clamp(2rem, 4vw, 2.75rem)',
                             fontWeight: '700',
                             color: '#1e293b',
                             marginBottom: '1.25rem'
@@ -234,7 +347,7 @@ export default function VetsPage() {
                             Why Veterinarians Choose PawScript
                         </h2>
                         <p style={{
-                            fontSize: 'clamp(1.125rem, 2.5vw, 1.375rem)',
+                            fontSize: isMobile ? '1.125rem' : 'clamp(1.125rem, 2.5vw, 1.375rem)',
                             color: '#6D6D72',
                             maxWidth: '600px',
                             margin: '0 auto',
@@ -247,12 +360,12 @@ export default function VetsPage() {
 
                     <div style={{
                         display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-                        gap: '3rem'
+                        gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(300px, 1fr))',
+                        gap: isMobile ? '2rem' : '3rem'
                     }}>
                         {/* Benefit 1 */}
                         <div style={{
-                            padding: '3rem 2rem',
+                            padding: isMobile ? '2rem 1.5rem' : '3rem 2rem',
                             borderRadius: '20px',
                             backgroundColor: '#FFFFFF',
                             boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
@@ -260,22 +373,22 @@ export default function VetsPage() {
                             transition: 'all 0.2s ease'
                         }}>
                             <div style={{
-                                width: '80px',
-                                height: '80px',
+                                width: isMobile ? '60px' : '80px',
+                                height: isMobile ? '60px' : '80px',
                                 backgroundColor: '#34C759',
                                 borderRadius: '20px',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 margin: '0 auto 2rem auto',
-                                fontSize: '2rem',
+                                fontSize: isMobile ? '1.5rem' : '2rem',
                                 color: 'white',
                                 fontWeight: '700'
                             }}>
                                 📋
                             </div>
                             <h3 style={{
-                                fontSize: '1.5rem',
+                                fontSize: isMobile ? '1.25rem' : '1.5rem',
                                 fontWeight: '600',
                                 color: '#1e293b',
                                 marginBottom: '1.25rem'
@@ -286,7 +399,7 @@ export default function VetsPage() {
                                 color: '#6D6D72',
                                 lineHeight: '1.6',
                                 fontWeight: '400',
-                                fontSize: '1.125rem'
+                                fontSize: isMobile ? '1rem' : '1.125rem'
                             }}>
                                 Create comprehensive discharge summaries in under 2 minutes. Generate QR codes that instantly load all medication details into the client&apos;s phone.
                             </p>
@@ -294,7 +407,7 @@ export default function VetsPage() {
 
                         {/* Benefit 2 */}
                         <div style={{
-                            padding: '3rem 2rem',
+                            padding: isMobile ? '2rem 1.5rem' : '3rem 2rem',
                             borderRadius: '20px',
                             backgroundColor: '#FFFFFF',
                             boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
@@ -302,22 +415,22 @@ export default function VetsPage() {
                             transition: 'all 0.2s ease'
                         }}>
                             <div style={{
-                                width: '80px',
-                                height: '80px',
+                                width: isMobile ? '60px' : '80px',
+                                height: isMobile ? '60px' : '80px',
                                 backgroundColor: '#007AFF',
                                 borderRadius: '20px',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 margin: '0 auto 2rem auto',
-                                fontSize: '2rem',
+                                fontSize: isMobile ? '1.5rem' : '2rem',
                                 color: 'white',
                                 fontWeight: '700'
                             }}>
                                 📊
                             </div>
                             <h3 style={{
-                                fontSize: '1.5rem',
+                                fontSize: isMobile ? '1.25rem' : '1.5rem',
                                 fontWeight: '600',
                                 color: '#1e293b',
                                 marginBottom: '1.25rem'
@@ -328,7 +441,7 @@ export default function VetsPage() {
                                 color: '#6D6D72',
                                 lineHeight: '1.6',
                                 fontWeight: '400',
-                                fontSize: '1.125rem'
+                                fontSize: isMobile ? '1rem' : '1.125rem'
                             }}>
                                 See which clients are following medication schedules and symptom patterns in real-time. Know exactly how treatment is progressing between visits.
                             </p>
@@ -336,7 +449,7 @@ export default function VetsPage() {
 
                         {/* Benefit 3 */}
                         <div style={{
-                            padding: '3rem 2rem',
+                            padding: isMobile ? '2rem 1.5rem' : '3rem 2rem',
                             borderRadius: '20px',
                             backgroundColor: '#FFFFFF',
                             boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
@@ -344,22 +457,22 @@ export default function VetsPage() {
                             transition: 'all 0.2s ease'
                         }}>
                             <div style={{
-                                width: '80px',
-                                height: '80px',
+                                width: isMobile ? '60px' : '80px',
+                                height: isMobile ? '60px' : '80px',
                                 backgroundColor: '#FF9500',
                                 borderRadius: '20px',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 margin: '0 auto 2rem auto',
-                                fontSize: '2rem',
+                                fontSize: isMobile ? '1.5rem' : '2rem',
                                 color: 'white',
                                 fontWeight: '700'
                             }}>
                                 💬
                             </div>
                             <h3 style={{
-                                fontSize: '1.5rem',
+                                fontSize: isMobile ? '1.25rem' : '1.5rem',
                                 fontWeight: '600',
                                 color: '#1e293b',
                                 marginBottom: '1.25rem'
@@ -370,7 +483,7 @@ export default function VetsPage() {
                                 color: '#6D6D72',
                                 lineHeight: '1.6',
                                 fontWeight: '400',
-                                fontSize: '1.125rem'
+                                fontSize: isMobile ? '1rem' : '1.125rem'
                             }}>
                                 Clients receive clear, organized medication schedules with automatic reminders. Follow-up calls become more focused and productive.
                             </p>
@@ -381,12 +494,12 @@ export default function VetsPage() {
 
             {/* How It Works Section */}
             <div style={{
-                padding: 'clamp(3rem, 8vw, 6rem) 2rem',
+                padding: isMobile ? '3rem 1rem' : 'clamp(3rem, 8vw, 6rem) 2rem',
                 backgroundColor: '#FFFFFF'
             }}>
                 <div style={{ maxWidth: '1000px', margin: '0 auto', textAlign: 'center' }}>
                     <h2 style={{
-                        fontSize: 'clamp(2rem, 4vw, 2.75rem)',
+                        fontSize: isMobile ? '2rem' : 'clamp(2rem, 4vw, 2.75rem)',
                         fontWeight: '700',
                         color: '#1e293b',
                         marginBottom: '1.25rem'
@@ -394,9 +507,9 @@ export default function VetsPage() {
                         How It Works
                     </h2>
                     <p style={{
-                        fontSize: 'clamp(1.125rem, 2.5vw, 1.375rem)',
+                        fontSize: isMobile ? '1.125rem' : 'clamp(1.125rem, 2.5vw, 1.375rem)',
                         color: '#6D6D72',
-                        marginBottom: '4rem',
+                        marginBottom: isMobile ? '3rem' : '4rem',
                         fontWeight: '400',
                         lineHeight: '1.5'
                     }}>
@@ -405,29 +518,29 @@ export default function VetsPage() {
 
                     <div style={{
                         display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-                        gap: '3rem',
+                        gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(250px, 1fr))',
+                        gap: isMobile ? '2.5rem' : '3rem',
                         textAlign: 'left'
                     }}>
                         {/* Step 1 */}
                         <div style={{ position: 'relative' }}>
                             <div style={{
-                                width: '60px',
-                                height: '60px',
+                                width: isMobile ? '50px' : '60px',
+                                height: isMobile ? '50px' : '60px',
                                 backgroundColor: '#007AFF',
                                 borderRadius: '50%',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 marginBottom: '1.5rem',
-                                fontSize: '1.5rem',
+                                fontSize: isMobile ? '1.25rem' : '1.5rem',
                                 fontWeight: '700',
                                 color: 'white'
                             }}>
                                 1
                             </div>
                             <h3 style={{
-                                fontSize: '1.375rem',
+                                fontSize: isMobile ? '1.25rem' : '1.375rem',
                                 fontWeight: '600',
                                 color: '#1e293b',
                                 marginBottom: '1rem'
@@ -437,7 +550,8 @@ export default function VetsPage() {
                             <p style={{
                                 color: '#6D6D72',
                                 lineHeight: '1.6',
-                                fontWeight: '400'
+                                fontWeight: '400',
+                                fontSize: isMobile ? '1rem' : '1.125rem'
                             }}>
                                 Add medications, dosages, and instructions using our searchable drug database. Include taper schedules and special notes.
                             </p>
@@ -446,22 +560,22 @@ export default function VetsPage() {
                         {/* Step 2 */}
                         <div style={{ position: 'relative' }}>
                             <div style={{
-                                width: '60px',
-                                height: '60px',
+                                width: isMobile ? '50px' : '60px',
+                                height: isMobile ? '50px' : '60px',
                                 backgroundColor: '#34C759',
                                 borderRadius: '50%',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 marginBottom: '1.5rem',
-                                fontSize: '1.5rem',
+                                fontSize: isMobile ? '1.25rem' : '1.5rem',
                                 fontWeight: '700',
                                 color: 'white'
                             }}>
                                 2
                             </div>
                             <h3 style={{
-                                fontSize: '1.375rem',
+                                fontSize: isMobile ? '1.25rem' : '1.375rem',
                                 fontWeight: '600',
                                 color: '#1e293b',
                                 marginBottom: '1rem'
@@ -471,7 +585,8 @@ export default function VetsPage() {
                             <p style={{
                                 color: '#6D6D72',
                                 lineHeight: '1.6',
-                                fontWeight: '400'
+                                fontWeight: '400',
+                                fontSize: isMobile ? '1rem' : '1.125rem'
                             }}>
                                 Instantly generate a QR code that contains all medication details. Print it on discharge papers or email to clients.
                             </p>
@@ -480,22 +595,22 @@ export default function VetsPage() {
                         {/* Step 3 */}
                         <div style={{ position: 'relative' }}>
                             <div style={{
-                                width: '60px',
-                                height: '60px',
+                                width: isMobile ? '50px' : '60px',
+                                height: isMobile ? '50px' : '60px',
                                 backgroundColor: '#FF9500',
                                 borderRadius: '50%',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 marginBottom: '1.5rem',
-                                fontSize: '1.5rem',
+                                fontSize: isMobile ? '1.25rem' : '1.5rem',
                                 fontWeight: '700',
                                 color: 'white'
                             }}>
                                 3
                             </div>
                             <h3 style={{
-                                fontSize: '1.375rem',
+                                fontSize: isMobile ? '1.25rem' : '1.375rem',
                                 fontWeight: '600',
                                 color: '#1e293b',
                                 marginBottom: '1rem'
@@ -505,7 +620,8 @@ export default function VetsPage() {
                             <p style={{
                                 color: '#6D6D72',
                                 lineHeight: '1.6',
-                                fontWeight: '400'
+                                fontWeight: '400',
+                                fontSize: isMobile ? '1rem' : '1.125rem'
                             }}>
                                 View real-time medication adherence and symptom logs through your dashboard. Get alerts for missed doses or concerning symptoms.
                             </p>
@@ -516,12 +632,12 @@ export default function VetsPage() {
 
             {/* Integration Section */}
             <div style={{
-                padding: 'clamp(3rem, 8vw, 6rem) 2rem',
+                padding: isMobile ? '3rem 1rem' : 'clamp(3rem, 8vw, 6rem) 2rem',
                 backgroundColor: '#F8FAFC'
             }}>
                 <div style={{ maxWidth: '1000px', margin: '0 auto', textAlign: 'center' }}>
                     <h2 style={{
-                        fontSize: 'clamp(2rem, 4vw, 2.5rem)',
+                        fontSize: isMobile ? '2rem' : 'clamp(2rem, 4vw, 2.5rem)',
                         fontWeight: '600',
                         color: '#1e293b',
                         marginBottom: '1.75rem'
@@ -529,10 +645,10 @@ export default function VetsPage() {
                         Works With Your Existing Workflow
                     </h2>
                     <p style={{
-                        fontSize: 'clamp(1.125rem, 2.5vw, 1.375rem)',
+                        fontSize: isMobile ? '1.125rem' : 'clamp(1.125rem, 2.5vw, 1.375rem)',
                         color: '#6D6D72',
                         lineHeight: '1.6',
-                        marginBottom: '3rem',
+                        marginBottom: isMobile ? '2rem' : '3rem',
                         fontWeight: '400'
                     }}>
                         PawScript doesn&apos;t replace your practice management software — it enhances it. Add discharge summaries to your current process without disruption.
@@ -540,7 +656,7 @@ export default function VetsPage() {
 
                     <div style={{
                         backgroundColor: 'white',
-                        padding: '3rem 2.5rem',
+                        padding: isMobile ? '2rem 1.5rem' : '3rem 2.5rem',
                         borderRadius: '24px',
                         boxShadow: '0 8px 25px rgba(0, 0, 0, 0.06)',
                         border: '1px solid rgba(0, 122, 255, 0.1)',
@@ -548,7 +664,7 @@ export default function VetsPage() {
                     }}>
                         <div style={{
                             display: 'grid',
-                            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                            gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(200px, 1fr))',
                             gap: '2rem',
                             textAlign: 'center'
                         }}>
@@ -618,15 +734,17 @@ export default function VetsPage() {
                             display: 'inline-block',
                             backgroundColor: '#007AFF',
                             color: 'white',
-                            padding: '1.125rem 2.25rem',
+                            padding: isMobile ? '1rem 2rem' : '1.125rem 2.25rem',
                             borderRadius: '14px',
                             textDecoration: 'none',
                             fontWeight: '600',
-                            fontSize: '1.125rem',
+                            fontSize: isMobile ? '1rem' : '1.125rem',
                             boxShadow: '0 6px 20px rgba(0, 122, 255, 0.25)',
                             border: 'none',
                             cursor: 'pointer',
-                            transition: 'all 0.2s ease'
+                            transition: 'all 0.2s ease',
+                            width: isMobile ? '100%' : 'auto',
+                            maxWidth: isMobile ? '280px' : 'none'
                         }}
                         onMouseEnter={(e) => {
                             e.currentTarget.style.backgroundColor = '#0051D0';
@@ -644,7 +762,7 @@ export default function VetsPage() {
 
             {/* Footer */}
             <div style={{
-                padding: '4rem 2rem 3rem',
+                padding: isMobile ? '3rem 1rem 2rem' : '4rem 2rem 3rem',
                 backgroundColor: '#1e293b',
                 color: 'white',
                 textAlign: 'center',
@@ -659,8 +777,8 @@ export default function VetsPage() {
                         marginBottom: '2.5rem'
                     }}>
                         <div style={{
-                            width: '36px',
-                            height: '36px',
+                            width: isMobile ? '28px' : '36px',
+                            height: isMobile ? '28px' : '36px',
                             position: 'relative',
                             borderRadius: '8px',
                             overflow: 'hidden'
@@ -673,7 +791,7 @@ export default function VetsPage() {
                             />
                         </div>
                         <span style={{
-                            fontSize: '1.375rem',
+                            fontSize: isMobile ? '1.25rem' : '1.375rem',
                             fontWeight: '700'
                         }}>
                             PawScript
@@ -684,18 +802,18 @@ export default function VetsPage() {
                         color: '#94a3b8',
                         marginBottom: '2.5rem',
                         fontWeight: '400',
-                        fontSize: '1.125rem'
+                        fontSize: isMobile ? '1rem' : '1.125rem'
                     }}>
                         Streamlining pet medication management for veterinarians and families.
                     </p>
 
                     <div style={{
                         display: 'flex',
+                        flexDirection: isMobile ? 'column' : 'row',
                         justifyContent: 'center',
-                        gap: '2.5rem',
+                        gap: isMobile ? '1rem' : '2.5rem',
                         marginBottom: '2.5rem',
-                        fontSize: '1rem',
-                        flexWrap: 'wrap'
+                        fontSize: '1rem'
                     }}>
                         <Link
                             href="/"
@@ -704,7 +822,8 @@ export default function VetsPage() {
                                 textDecoration: 'none',
                                 fontWeight: '400',
                                 transition: 'color 0.2s ease',
-                                cursor: 'pointer'
+                                cursor: 'pointer',
+                                padding: isMobile ? '0.5rem 0' : '0'
                             }}
                             onMouseEnter={(e) => e.currentTarget.style.color = '#007AFF'}
                             onMouseLeave={(e) => e.currentTarget.style.color = '#94a3b8'}
@@ -718,7 +837,8 @@ export default function VetsPage() {
                                 textDecoration: 'none',
                                 fontWeight: '400',
                                 transition: 'color 0.2s ease',
-                                cursor: 'pointer'
+                                cursor: 'pointer',
+                                padding: isMobile ? '0.5rem 0' : '0'
                             }}
                             onMouseEnter={(e) => e.currentTarget.style.color = '#007AFF'}
                             onMouseLeave={(e) => e.currentTarget.style.color = '#94a3b8'}
@@ -732,7 +852,8 @@ export default function VetsPage() {
                                 textDecoration: 'none',
                                 fontWeight: '400',
                                 transition: 'color 0.2s ease',
-                                cursor: 'pointer'
+                                cursor: 'pointer',
+                                padding: isMobile ? '0.5rem 0' : '0'
                             }}
                             onMouseEnter={(e) => e.currentTarget.style.color = '#007AFF'}
                             onMouseLeave={(e) => e.currentTarget.style.color = '#94a3b8'}
