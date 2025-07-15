@@ -1,5 +1,6 @@
-// src/types/discharge.ts - Updated with totalDoses field
+// src/types/discharge.ts - Updated with petId and medId fields
 export interface Pet {
+    petId: string;      // NEW - unique identifier across all visits and discharges
     name: string;
     species: string;
     weight: string;
@@ -17,6 +18,7 @@ export interface TaperStage {
 }
 
 export interface Medication {
+    medId: string;      // NEW - unique identifier for this medication record
     name: string;
     dosage?: string;        // Only for non-tapered meds
     frequency?: number;     // Integer frequency (1, 2, 3, etc.) - no more 0.5

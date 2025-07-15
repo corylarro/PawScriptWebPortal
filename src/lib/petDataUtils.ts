@@ -1,10 +1,49 @@
-// lib/petDataUtils.ts
-import { collection, query, where, orderBy, getDocs, Timestamp } from 'firebase/firestore';
+// lib/petDataUtils.ts - Updated for Enhanced Vet Portal Metrics
+import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { COLLECTIONS } from '@/types/firestore';
-import { Discharge } from '@/types/discharge';
-import { AdherenceRecord, AdherenceMetrics } from './adherence';
-import { SymptomAnalysis, SymptomFlag } from './symptomFlags';
+import { Discharge, Medication } from '@/types/discharge';
+
+/**
+ * Core interfaces for pet metrics
+ */
+export interface PetMetrics {
+    // Patient identification
+    petName: string;
+    petSpecies: string;
+    petWeight?: string;
+
+    // Visit information
+    lastVisitDate: Date;
+    totalVisits: number;
+
+    // Adherence metrics
+    overallAdherenceRate: number; // All meds, all discharges (last 90d)
+    activeOnlyAdherenceRate: number; // Active meds only
+
+    // Medication counts
+    activeMedsCount: number;
+    archivedMedsCount: number;
+
+    // Dose tracking
+    missedDoseCount: number; // Last 14-30d
+    lateDoseCount: number; // Last 14-30d
+    lastDoseGivenDate?: Date; // Most recent dose from any med
+
+    // Activity status
+    currentStatus: 'active' | 'inactive';
+
+    // Symptom monitoring
+    recentSymptomAlerts: number; // Last 14d
+}
+
+export interface MedicationStatus {
+    medicationName: string;
+    isActive: boolean;
+    startDate: Date;
+    endDate?: Date;
+    dischargeId: string;
+}
 
 /**
  * Get all discharges for a specific pet across all visits
@@ -29,7 +68,8 @@ export async function getAllDischargesForPet(
                 id: doc.id,
                 ...doc.data(),
                 createdAt: doc.data().createdAt?.toDate() || new Date(),
-                updatedAt: doc.data().updatedAt?.toDate() || new Date()
+                updatedAt: doc.data().updatedAt?.toDate() || new Date(),
+                visitDate: doc.data().visitDate?.toDate() || doc.data().createdAt?.toDate() || new Date()
             } as Discharge))
             .filter(discharge => {
                 const nameMatch = discharge.pet.name.toLowerCase() === petName.toLowerCase();
@@ -47,511 +87,254 @@ export async function getAllDischargesForPet(
 }
 
 /**
- * Get aggregated adherence data across all discharges for a pet
+ * Get comprehensive pet metrics for dashboard display
  */
-export async function getAllAdherenceForPet(
+export async function getPetMetrics(
     petName: string,
     clinicId: string,
-    petSpecies?: string,
-    dayRange: number = 90
-): Promise<{
-    aggregatedMetrics: AdherenceMetrics;
-    allRecords: (AdherenceRecord & { dischargeId: string })[];
-    lastActivity?: Date;
-    isActive: boolean;
-}> {
+    petSpecies?: string
+): Promise<PetMetrics> {
     try {
-        // Get all discharges for this pet
         const discharges = await getAllDischargesForPet(petName, clinicId, petSpecies);
 
         if (discharges.length === 0) {
-            return {
-                aggregatedMetrics: createEmptyMetrics(),
-                allRecords: [],
-                isActive: false
-            };
+            return createEmptyPetMetrics(petName, petSpecies || '');
         }
 
-        // Calculate date range
-        const endDate = new Date();
-        const startDate = new Date();
-        startDate.setDate(endDate.getDate() - dayRange);
+        const latestDischarge = discharges[0]; // Most recent
+        const lastVisitDate = latestDischarge.visitDate || latestDischarge.createdAt;
 
-        // Collect all adherence records across discharges
-        const allRecords: (AdherenceRecord & { dischargeId: string })[] = [];
+        // Get all medications across all discharges
+        const allMedications = await getAllMedicationsForPet(discharges);
 
-        for (const discharge of discharges) {
-            try {
-                const adherenceRef = collection(db, 'discharges', discharge.id, 'adherence');
-                const q = query(
-                    adherenceRef,
-                    where('scheduledTime', '>=', Timestamp.fromDate(startDate)),
-                    where('scheduledTime', '<=', Timestamp.fromDate(endDate)),
-                    orderBy('scheduledTime', 'desc')
-                );
+        // Calculate adherence metrics
+        const adherenceMetrics = await calculatePetAdherenceMetrics(discharges);
 
-                const snapshot = await getDocs(q);
+        // Calculate dose metrics
+        const doseMetrics = await calculatePetDoseMetrics(discharges);
 
-                snapshot.docs.forEach(doc => {
-                    allRecords.push({
-                        id: doc.id,
-                        dischargeId: discharge.id,
-                        ...doc.data()
-                    } as AdherenceRecord & { dischargeId: string });
-                });
-            } catch (error) {
-                console.error(`Error fetching adherence for discharge ${discharge.id}:`, error);
-            }
-        }
+        // Calculate symptom alerts
+        const symptomAlerts = await calculatePetSymptomAlerts(discharges);
 
-        // Sort all records by scheduled time
-        allRecords.sort((a, b) => b.scheduledTime.seconds - a.scheduledTime.seconds);
-
-        // Calculate aggregated metrics
-        const aggregatedMetrics = calculateAggregatedAdherence(allRecords);
-
-        // Find last activity
-        const lastActivity = allRecords.length > 0
-            ? allRecords[0].loggedAt.toDate()
-            : undefined;
-
-        // Consider active if there's been activity in the last 7 days
-        const isActive = lastActivity
-            ? (Date.now() - lastActivity.getTime()) < (7 * 24 * 60 * 60 * 1000)
-            : false;
+        // Determine current status
+        const currentStatus = determinePatientStatus(doseMetrics.lastDoseGivenDate);
 
         return {
-            aggregatedMetrics,
-            allRecords,
-            lastActivity,
-            isActive
+            petName: latestDischarge.pet.name,
+            petSpecies: latestDischarge.pet.species,
+            petWeight: latestDischarge.pet.weight,
+            lastVisitDate,
+            totalVisits: discharges.length,
+            overallAdherenceRate: adherenceMetrics.overall,
+            activeOnlyAdherenceRate: adherenceMetrics.activeOnly,
+            activeMedsCount: allMedications.filter(med => med.isActive).length,
+            archivedMedsCount: allMedications.filter(med => !med.isActive).length,
+            missedDoseCount: doseMetrics.missedCount,
+            lateDoseCount: doseMetrics.lateCount,
+            lastDoseGivenDate: doseMetrics.lastDoseGivenDate,
+            currentStatus,
+            recentSymptomAlerts: symptomAlerts
         };
 
     } catch (error) {
-        console.error(`Error getting adherence for pet ${petName}:`, error);
-        return {
-            aggregatedMetrics: createEmptyMetrics(),
-            allRecords: [],
-            isActive: false
-        };
+        console.error(`Error calculating pet metrics for ${petName}:`, error);
+        return createEmptyPetMetrics(petName, petSpecies || '');
     }
 }
 
 /**
- * Get aggregated symptom data across all discharges for a pet
+ * Get all medications across all discharges for a pet
  */
-export async function getAllSymptomLogsForPet(
-    petName: string,
-    clinicId: string,
-    petSpecies?: string,
-    dayRange: number = 90
-): Promise<{
-    aggregatedAnalysis: SymptomAnalysis;
-    allSymptoms: Array<{
-        dischargeId: string;
-        medicationName: string;
-        date: string;
-        appetite: number;
-        energyLevel: number;
-        isPanting: boolean;
-        notes?: string;
-        recordedAt: Date;
-    }>;
-    flagCount: number;
-}> {
-    try {
-        // Get all discharges for this pet
-        const discharges = await getAllDischargesForPet(petName, clinicId, petSpecies);
+async function getAllMedicationsForPet(discharges: Discharge[]): Promise<MedicationStatus[]> {
+    const medications: MedicationStatus[] = [];
+    const now = new Date();
 
-        if (discharges.length === 0) {
-            return {
-                aggregatedAnalysis: createEmptySymptomAnalysis(),
-                allSymptoms: [],
-                flagCount: 0
-            };
+    for (const discharge of discharges) {
+        for (const med of discharge.medications) {
+            // Determine if medication is currently active
+            const isActive = isMedicationActive(med, discharge, now);
+
+            medications.push({
+                medicationName: med.name,
+                isActive,
+                startDate: new Date(med.startDate || discharge.createdAt),
+                endDate: med.endDate ? new Date(med.endDate) : undefined,
+                dischargeId: discharge.id
+            });
         }
+    }
 
-        // Calculate date range
-        const endDate = new Date();
-        const startDate = new Date();
-        startDate.setDate(endDate.getDate() - dayRange);
+    return medications;
+}
 
-        // Collect all symptom logs across discharges
-        const allSymptoms: Array<{
-            dischargeId: string;
-            medicationName: string;
-            date: string;
-            appetite: number;
-            energyLevel: number;
-            isPanting: boolean;
-            notes?: string;
-            recordedAt: Date;
-        }> = [];
+/**
+ * Determine if a medication is currently active
+ */
+function isMedicationActive(medication: Medication, discharge: Discharge, currentDate: Date): boolean {
+    const startDate = new Date(medication.startDate || discharge.createdAt);
 
-        for (const discharge of discharges) {
-            try {
-                const adherenceRef = collection(db, 'discharges', discharge.id, 'adherence');
-                const q = query(
-                    adherenceRef,
-                    where('scheduledTime', '>=', Timestamp.fromDate(startDate)),
-                    where('scheduledTime', '<=', Timestamp.fromDate(endDate)),
-                    orderBy('scheduledTime', 'desc')
-                );
+    // If medication has an explicit end date
+    if (medication.endDate) {
+        const endDate = new Date(medication.endDate);
+        return currentDate >= startDate && currentDate <= endDate;
+    }
 
-                const snapshot = await getDocs(q);
-
-                snapshot.docs.forEach(doc => {
-                    const record = doc.data() as AdherenceRecord;
-                    if (record.symptoms) {
-                        const dateKey = record.scheduledTime.toDate().toISOString().split('T')[0];
-
-                        allSymptoms.push({
-                            dischargeId: discharge.id,
-                            medicationName: record.medicationName,
-                            date: dateKey,
-                            appetite: record.symptoms.appetite,
-                            energyLevel: record.symptoms.energyLevel,
-                            isPanting: record.symptoms.isPanting,
-                            notes: record.symptoms.notes,
-                            recordedAt: record.symptoms.recordedAt.toDate()
-                        });
-                    }
-                });
-            } catch (error) {
-                console.error(`Error fetching symptoms for discharge ${discharge.id}:`, error);
-            }
-        }
-
-        // Group by date and keep most recent entry per day
-        const symptomsByDate = new Map<string, typeof allSymptoms[0]>();
-        allSymptoms.forEach(symptom => {
-            if (!symptomsByDate.has(symptom.date) ||
-                symptom.recordedAt > (symptomsByDate.get(symptom.date)?.recordedAt || new Date(0))) {
-                symptomsByDate.set(symptom.date, symptom);
-            }
+    // For tapered medications, check if we're within any taper stage
+    if (medication.isTapered && medication.taperStages.length > 0) {
+        return medication.taperStages.some(stage => {
+            const stageStart = new Date(stage.startDate);
+            const stageEnd = new Date(stage.endDate);
+            return currentDate >= stageStart && currentDate <= stageEnd;
         });
+    }
 
-        // Convert to symptom entries for analysis
-        const symptomEntries = Array.from(symptomsByDate.values())
-            .map(s => ({
-                date: s.date,
-                appetite: s.appetite,
-                energyLevel: s.energyLevel,
-                isPanting: s.isPanting,
-                notes: s.notes,
-                recordedAt: s.recordedAt
-            }))
-            .sort((a, b) => b.date.localeCompare(a.date));
+    // For medications with totalDoses, consider inactive if doses are completed
+    if (medication.totalDoses) {
+        // This would require checking actual dose completion from adherence records
+        // For now, assume active if within reasonable timeframe (30 days)
+        const daysSinceStart = (currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
+        return daysSinceStart <= 30;
+    }
 
-        // Calculate aggregated analysis
-        const aggregatedAnalysis = calculateAggregatedSymptoms(symptomEntries);
+    // Default: consider active if started within last 30 days
+    const daysSinceStart = (currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
+    return daysSinceStart <= 30;
+}
+
+/**
+ * Calculate adherence metrics for a pet across all discharges
+ */
+async function calculatePetAdherenceMetrics(discharges: Discharge[]): Promise<{
+    overall: number;
+    activeOnly: number;
+}> {
+    try {
+        // Import the enhanced adherence functions
+        const { calculatePetAdherenceMetrics } = await import('./adherence');
+
+        // Get comprehensive adherence metrics across all discharges
+        const metrics = await calculatePetAdherenceMetrics(discharges, 90); // Last 90 days
 
         return {
-            aggregatedAnalysis,
-            allSymptoms: Array.from(symptomsByDate.values()),
-            flagCount: aggregatedAnalysis.flags.length
+            overall: metrics.overall.adherenceRate,
+            activeOnly: metrics.activeOnly.adherenceRate
         };
 
     } catch (error) {
-        console.error(`Error getting symptoms for pet ${petName}:`, error);
-        return {
-            aggregatedAnalysis: createEmptySymptomAnalysis(),
-            allSymptoms: [],
-            flagCount: 0
-        };
+        console.error('Error calculating pet adherence metrics:', error);
+        return { overall: 0, activeOnly: 0 };
     }
 }
 
 /**
- * Helper function to calculate aggregated adherence metrics
+ * Calculate dose-related metrics for a pet
  */
-function calculateAggregatedAdherence(records: (AdherenceRecord & { dischargeId: string })[]): AdherenceMetrics {
-    if (records.length === 0) {
-        return createEmptyMetrics();
-    }
+async function calculatePetDoseMetrics(discharges: Discharge[]): Promise<{
+    missedCount: number;
+    lateCount: number;
+    lastDoseGivenDate?: Date;
+}> {
+    try {
+        // Import the enhanced adherence functions
+        const { getPetDoseMetrics } = await import('./adherence');
 
-    // Group by medication across all discharges
-    const medicationGroups = new Map<string, (AdherenceRecord & { dischargeId: string })[]>();
-
-    records.forEach(record => {
-        const key = record.medicationName;
-        if (!medicationGroups.has(key)) {
-            medicationGroups.set(key, []);
-        }
-        medicationGroups.get(key)!.push(record);
-    });
-
-    // Calculate overall metrics
-    const totalDoses = records.length;
-    const givenDoses = records.filter(r => r.status === 'given').length;
-    const missedDoses = records.filter(r => r.status === 'missed').length;
-
-    // Calculate late doses (given more than 2 hours after scheduled)
-    const lateDoses = records.filter(r => {
-        if (r.status !== 'given' || !r.givenAt) return false;
-        const scheduledTime = r.scheduledTime.toDate().getTime();
-        const givenTime = r.givenAt.toDate().getTime();
-        const twoHours = 2 * 60 * 60 * 1000;
-        return givenTime > scheduledTime + twoHours;
-    }).length;
-
-    const adherenceRate = totalDoses > 0 ? Math.round((givenDoses / totalDoses) * 100) : 0;
-
-    // Calculate per-medication metrics
-    const perMedication = Array.from(medicationGroups.entries()).map(([medicationName, medRecords]) => {
-        const medTotal = medRecords.length;
-        const medGiven = medRecords.filter(r => r.status === 'given').length;
-        const medLate = medRecords.filter(r => {
-            if (r.status !== 'given' || !r.givenAt) return false;
-            const scheduledTime = r.scheduledTime.toDate().getTime();
-            const givenTime = r.givenAt.toDate().getTime();
-            const twoHours = 2 * 60 * 60 * 1000;
-            return givenTime > scheduledTime + twoHours;
-        }).length;
-        const medMissed = medRecords.filter(r => r.status === 'missed').length;
-        const onTimeDoses = medGiven - medLate;
+        // Get dose metrics across all discharges (last 30 days)
+        const metrics = await getPetDoseMetrics(discharges, 30);
 
         return {
-            medicationName,
-            totalDoses: medTotal,
-            onTimeDoses,
-            lateDoses: medLate,
-            missedDoses: medMissed,
-            adherenceRate: medTotal > 0 ? Math.round((medGiven / medTotal) * 100) : 0
+            missedCount: metrics.missedDoseCount,
+            lateCount: metrics.lateDoseCount,
+            lastDoseGivenDate: metrics.lastDoseGivenDate
         };
-    });
 
-    // Calculate timeline by date
-    const dateGroups = new Map<string, (AdherenceRecord & { dischargeId: string })[]>();
-    records.forEach(record => {
-        const dateKey = record.scheduledTime.toDate().toISOString().split('T')[0];
-        if (!dateGroups.has(dateKey)) {
-            dateGroups.set(dateKey, []);
-        }
-        dateGroups.get(dateKey)!.push(record);
-    });
+    } catch (error) {
+        console.error('Error calculating pet dose metrics:', error);
+        return { missedCount: 0, lateCount: 0 };
+    }
+}
 
-    const timeline = Array.from(dateGroups.entries()).map(([date, dayRecords]) => {
-        const scheduled = dayRecords.length;
-        const given = dayRecords.filter(r => r.status === 'given').length;
-        const missed = dayRecords.filter(r => r.status === 'missed').length;
-        const dayAdherence = scheduled > 0 ? Math.round((given / scheduled) * 100) : 0;
+/**
+ * Calculate symptom alerts for a pet (last 14 days)
+ */
+async function calculatePetSymptomAlerts(discharges: Discharge[]): Promise<number> {
+    try {
+        // Import the enhanced symptom flags function
+        const { getPetSymptomFlagCount } = await import('./symptomFlags');
+
+        // Get symptom flags across all discharges for this pet
+        const alertCount = await getPetSymptomFlagCount(discharges, 14); // Last 14 days
+
+        return alertCount;
+
+    } catch (error) {
+        console.error('Error calculating pet symptom alerts:', error);
+        return 0;
+    }
+}
+
+/**
+ * Determine patient status based on recent activity
+ */
+function determinePatientStatus(lastDoseDate?: Date): 'active' | 'inactive' {
+    if (!lastDoseDate) return 'inactive';
+
+    const sevenDaysAgo = new Date(Date.now() - (7 * 24 * 60 * 60 * 1000));
+    return lastDoseDate >= sevenDaysAgo ? 'active' : 'inactive';
+}
+
+/**
+ * Create empty metrics object
+ */
+function createEmptyPetMetrics(petName: string, petSpecies: string): PetMetrics {
+    return {
+        petName,
+        petSpecies,
+        lastVisitDate: new Date(),
+        totalVisits: 0,
+        overallAdherenceRate: 0,
+        activeOnlyAdherenceRate: 0,
+        activeMedsCount: 0,
+        archivedMedsCount: 0,
+        missedDoseCount: 0,
+        lateDoseCount: 0,
+        currentStatus: 'inactive',
+        recentSymptomAlerts: 0
+    };
+}
+
+/**
+ * Get quick summary metrics for patient list display
+ */
+export async function getPatientListMetrics(
+    petName: string,
+    clinicId: string,
+    petSpecies?: string
+): Promise<{
+    lastVisitDate: Date;
+    overallAdherenceRate: number;
+    activeOnlyAdherenceRate: number;
+    recentSymptomAlerts: number;
+    currentStatus: 'active' | 'inactive';
+}> {
+    try {
+        const fullMetrics = await getPetMetrics(petName, clinicId, petSpecies);
 
         return {
-            date,
-            scheduledDoses: scheduled,
-            givenDoses: given,
-            missedDoses: missed,
-            adherenceRate: dayAdherence
+            lastVisitDate: fullMetrics.lastVisitDate,
+            overallAdherenceRate: fullMetrics.overallAdherenceRate,
+            activeOnlyAdherenceRate: fullMetrics.activeOnlyAdherenceRate,
+            recentSymptomAlerts: fullMetrics.recentSymptomAlerts,
+            currentStatus: fullMetrics.currentStatus
         };
-    }).sort((a, b) => a.date.localeCompare(b.date));
 
-    return {
-        overall: {
-            totalDoses,
-            givenDoses,
-            lateDoses,
-            missedDoses,
-            adherenceRate
-        },
-        perMedication,
-        timeline
-    };
-}
-
-/**
- * Helper function to calculate aggregated symptom analysis
- */
-function calculateAggregatedSymptoms(entries: Array<{
-    date: string;
-    appetite: number;
-    energyLevel: number;
-    isPanting: boolean;
-    notes?: string;
-    recordedAt: Date;
-}>): SymptomAnalysis {
-    if (entries.length === 0) {
-        return createEmptySymptomAnalysis();
+    } catch (error) {
+        console.error(`Error getting patient list metrics for ${petName}:`, error);
+        return {
+            lastVisitDate: new Date(),
+            overallAdherenceRate: 0,
+            activeOnlyAdherenceRate: 0,
+            recentSymptomAlerts: 0,
+            currentStatus: 'inactive'
+        };
     }
-
-    // Generate flags based on symptom patterns
-    const flags = generateSymptomFlags(entries);
-
-    // Calculate trends
-    const sevenDayEntries = entries.slice(0, 7);
-    const appetiteValues = sevenDayEntries.map(e => e.appetite).filter(v => v > 0);
-    const energyValues = sevenDayEntries.map(e => e.energyLevel).filter(v => v > 0);
-
-    const appetiteAvg = appetiteValues.length > 0
-        ? appetiteValues.reduce((sum, val) => sum + val, 0) / appetiteValues.length
-        : 0;
-
-    const energyAvg = energyValues.length > 0
-        ? energyValues.reduce((sum, val) => sum + val, 0) / energyValues.length
-        : 0;
-
-    const pantingDays = sevenDayEntries.filter(e => e.isPanting).length;
-
-    // Calculate trends
-    const appetiteTrend = calculateTrend(entries.map(e => e.appetite));
-    const energyTrend = calculateTrend(entries.map(e => e.energyLevel));
-
-    const trends = {
-        appetite: {
-            current: entries.length > 0 ? entries[0].appetite : 0,
-            sevenDayAverage: Math.round(appetiteAvg * 10) / 10,
-            trend: appetiteTrend
-        },
-        energy: {
-            current: entries.length > 0 ? entries[0].energyLevel : 0,
-            sevenDayAverage: Math.round(energyAvg * 10) / 10,
-            trend: energyTrend
-        },
-        panting: {
-            recentDays: pantingDays,
-            isFrequent: pantingDays >= 3
-        }
-    };
-
-    return {
-        flags,
-        recentEntries: entries.slice(0, 14),
-        trends
-    };
-}
-
-/**
- * Helper function to generate symptom flags
- */
-function generateSymptomFlags(entries: Array<{
-    date: string;
-    appetite: number;
-    energyLevel: number;
-    isPanting: boolean;
-}>): SymptomFlag[] {
-    const flags: SymptomFlag[] = [];
-
-    if (entries.length === 0) return flags;
-
-    // Check recent entries for flags
-    entries.slice(0, 7).forEach((entry, index) => {
-        // Low appetite flags
-        if (entry.appetite <= 2) {
-            flags.push({
-                type: 'appetite_low',
-                date: entry.date,
-                description: `Very low appetite (${entry.appetite}/5)`,
-                severity: entry.appetite === 1 ? 'high' : 'medium',
-                value: entry.appetite
-            });
-        }
-
-        // Low energy flags
-        if (entry.energyLevel <= 2) {
-            flags.push({
-                type: 'energy_low',
-                date: entry.date,
-                description: `Low energy level (${entry.energyLevel}/5)`,
-                severity: entry.energyLevel === 1 ? 'high' : 'medium',
-                value: entry.energyLevel
-            });
-        }
-
-        // Appetite drop flags (compared to previous day)
-        if (index < entries.length - 1) {
-            const previousEntry = entries[index + 1];
-            const appetiteDrop = previousEntry.appetite - entry.appetite;
-            if (appetiteDrop >= 2) {
-                flags.push({
-                    type: 'appetite_drop',
-                    date: entry.date,
-                    description: `Appetite dropped from ${previousEntry.appetite} to ${entry.appetite}`,
-                    severity: appetiteDrop >= 3 ? 'high' : 'medium',
-                    value: entry.appetite,
-                    previousValue: previousEntry.appetite
-                });
-            }
-
-            // Energy drop flags
-            const energyDrop = previousEntry.energyLevel - entry.energyLevel;
-            if (energyDrop >= 2) {
-                flags.push({
-                    type: 'energy_drop',
-                    date: entry.date,
-                    description: `Energy dropped from ${previousEntry.energyLevel} to ${entry.energyLevel}`,
-                    severity: energyDrop >= 3 ? 'high' : 'medium',
-                    value: entry.energyLevel,
-                    previousValue: previousEntry.energyLevel
-                });
-            }
-        }
-
-        // Persistent panting flag
-        if (entry.isPanting) {
-            const recentPantingDays = entries.slice(0, 3).filter(e => e.isPanting).length;
-            if (recentPantingDays >= 3) {
-                flags.push({
-                    type: 'panting_persistent',
-                    date: entry.date,
-                    description: `Persistent panting for ${recentPantingDays} days`,
-                    severity: 'medium'
-                });
-            }
-        }
-    });
-
-    return flags;
-}
-
-/**
- * Helper function to calculate trend direction
- */
-function calculateTrend(values: number[]): 'improving' | 'stable' | 'declining' {
-    if (values.length < 3) return 'stable';
-
-    const recent = values.slice(0, 3);
-    const older = values.slice(3, 6);
-
-    if (recent.length === 0 || older.length === 0) return 'stable';
-
-    const recentAvg = recent.reduce((sum, val) => sum + val, 0) / recent.length;
-    const olderAvg = older.reduce((sum, val) => sum + val, 0) / older.length;
-
-    const difference = recentAvg - olderAvg;
-
-    if (difference > 0.5) return 'improving';
-    if (difference < -0.5) return 'declining';
-    return 'stable';
-}
-
-/**
- * Helper function to create empty metrics
- */
-function createEmptyMetrics(): AdherenceMetrics {
-    return {
-        overall: {
-            totalDoses: 0,
-            givenDoses: 0,
-            lateDoses: 0,
-            missedDoses: 0,
-            adherenceRate: 0
-        },
-        perMedication: [],
-        timeline: []
-    };
-}
-
-/**
- * Helper function to create empty symptom analysis
- */
-function createEmptySymptomAnalysis(): SymptomAnalysis {
-    return {
-        flags: [],
-        recentEntries: [],
-        trends: {
-            appetite: { current: 0, sevenDayAverage: 0, trend: 'stable' },
-            energy: { current: 0, sevenDayAverage: 0, trend: 'stable' },
-            panting: { recentDays: 0, isFrequent: false }
-        }
-    };
 }

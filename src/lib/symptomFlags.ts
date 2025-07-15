@@ -1,7 +1,8 @@
-// lib/symptomFlags.ts
+// lib/symptomFlags.ts - Enhanced for Multi-Discharge Support
 import { collection, query, where, orderBy, getDocs, Timestamp, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { AdherenceRecord } from './adherence';
+import { Discharge } from '@/types/discharge';
 
 // Symptom flag types
 export type SymptomFlagType = 'appetite_low' | 'appetite_drop' | 'energy_low' | 'energy_drop' | 'panting_persistent';
@@ -13,6 +14,7 @@ export interface SymptomFlag {
     severity: 'low' | 'medium' | 'high';
     value?: number; // The symptom value that triggered the flag
     previousValue?: number; // For drop flags
+    dischargeId: string; // Track which discharge this flag came from
 }
 
 export interface SymptomEntry {
@@ -22,6 +24,7 @@ export interface SymptomEntry {
     isPanting: boolean;
     notes?: string;
     recordedAt: Date;
+    dischargeId: string; // Track which discharge this entry came from
 }
 
 export interface SymptomAnalysis {
@@ -46,7 +49,19 @@ export interface SymptomAnalysis {
 }
 
 /**
- * Analyze symptoms and generate flags based on the defined rules
+ * Enhanced interface for cross-discharge symptom analysis
+ */
+export interface CrossDischargeSymptomAnalysis {
+    flags: SymptomFlag[];
+    recentEntries: SymptomEntry[];
+    trends: SymptomAnalysis['trends'];
+    flagsByDischarge: Record<string, SymptomFlag[]>; // Grouped by discharge ID
+    totalFlagCount: number;
+    activeDischargeFlagCount: number; // Flags from currently active discharges
+}
+
+/**
+ * Analyze symptoms for a single discharge (existing function - enhanced)
  */
 export async function analyzeSymptoms(
     dischargeId: string,
@@ -98,7 +113,8 @@ export async function analyzeSymptoms(
                     energyLevel: record.symptoms.energyLevel,
                     isPanting: record.symptoms.isPanting,
                     notes: record.symptoms.notes,
-                    recordedAt: record.symptoms.recordedAt.toDate()
+                    recordedAt: record.symptoms.recordedAt.toDate(),
+                    dischargeId // Add discharge tracking
                 });
             }
         });
@@ -114,7 +130,7 @@ export async function analyzeSymptoms(
         }
 
         // Analyze flags
-        const flags = generateSymptomFlags(symptomEntries);
+        const flags = generateSymptomFlags(symptomEntries, dischargeId);
 
         // Calculate trends
         const trends = calculateSymptomTrends(symptomEntries);
@@ -132,24 +148,200 @@ export async function analyzeSymptoms(
 }
 
 /**
- * Helper function to create empty analysis
+ * NEW: Analyze symptoms across ALL discharges for a pet
+ * This supports the enhanced metrics requirements
  */
-function createEmptyAnalysis(): SymptomAnalysis {
-    return {
-        flags: [],
-        recentEntries: [],
-        trends: {
-            appetite: { current: 0, sevenDayAverage: 0, trend: 'stable' },
-            energy: { current: 0, sevenDayAverage: 0, trend: 'stable' },
-            panting: { recentDays: 0, isFrequent: false }
+export async function analyzePetSymptoms(
+    discharges: Discharge[],
+    dayRange: number = 14
+): Promise<CrossDischargeSymptomAnalysis> {
+    try {
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(endDate.getDate() - dayRange);
+
+        let allEntries: SymptomEntry[] = [];
+        let allFlags: SymptomFlag[] = [];
+        const flagsByDischarge: Record<string, SymptomFlag[]> = {};
+
+        // Collect symptom data from all discharges
+        for (const discharge of discharges) {
+            const adherenceRef = collection(db, 'discharges', discharge.id, 'adherence');
+            const q = query(
+                adherenceRef,
+                where('scheduledTime', '>=', Timestamp.fromDate(startDate)),
+                where('scheduledTime', '<=', Timestamp.fromDate(endDate)),
+                orderBy('scheduledTime', 'desc'),
+                limit(200) // Reasonable limit per discharge
+            );
+
+            const snapshot = await getDocs(q);
+
+            if (snapshot.empty) continue;
+
+            const records: AdherenceRecord[] = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            } as AdherenceRecord));
+
+            // Extract symptom entries for this discharge
+            const symptomsByDate = new Map<string, SymptomEntry>();
+
+            records.forEach(record => {
+                if (!record.symptoms) return;
+
+                const dateKey = record.scheduledTime.toDate().toISOString().split('T')[0];
+
+                // Only keep the most recent symptom entry for each day
+                if (!symptomsByDate.has(dateKey) ||
+                    record.symptoms.recordedAt.toDate() > (symptomsByDate.get(dateKey)?.recordedAt || new Date(0))) {
+
+                    symptomsByDate.set(dateKey, {
+                        date: dateKey,
+                        appetite: record.symptoms.appetite,
+                        energyLevel: record.symptoms.energyLevel,
+                        isPanting: record.symptoms.isPanting,
+                        notes: record.symptoms.notes,
+                        recordedAt: record.symptoms.recordedAt.toDate(),
+                        dischargeId: discharge.id
+                    });
+                }
+            });
+
+            const dischargeEntries = Array.from(symptomsByDate.values());
+            allEntries = [...allEntries, ...dischargeEntries];
+
+            // Generate flags for this discharge
+            const dischargeFlags = generateSymptomFlags(dischargeEntries, discharge.id);
+            allFlags = [...allFlags, ...dischargeFlags];
+            flagsByDischarge[discharge.id] = dischargeFlags;
         }
-    };
+
+        // Sort all entries by date (most recent first)
+        allEntries.sort((a, b) => b.date.localeCompare(a.date));
+
+        // Sort all flags by date (most recent first)
+        allFlags.sort((a, b) => b.date.localeCompare(a.date));
+
+        // Calculate trends across all discharges
+        const trends = calculateSymptomTrends(allEntries);
+
+        // Count flags from active discharges
+        const activeDischargeFlagCount = countActiveDischargeFlagsFlags(discharges, allFlags);
+
+        return {
+            flags: allFlags,
+            recentEntries: allEntries.slice(0, 14), // Last 2 weeks across all discharges
+            trends,
+            flagsByDischarge,
+            totalFlagCount: allFlags.length,
+            activeDischargeFlagCount
+        };
+
+    } catch (error) {
+        console.error('Error analyzing pet symptoms across discharges:', error);
+        return {
+            flags: [],
+            recentEntries: [],
+            trends: {
+                appetite: { current: 0, sevenDayAverage: 0, trend: 'stable' },
+                energy: { current: 0, sevenDayAverage: 0, trend: 'stable' },
+                panting: { recentDays: 0, isFrequent: false }
+            },
+            flagsByDischarge: {},
+            totalFlagCount: 0,
+            activeDischargeFlagCount: 0
+        };
+    }
 }
 
 /**
- * Generate symptom flags based on the defined rules
+ * NEW: Get symptom flag count across ALL discharges for a pet (for metrics)
  */
-function generateSymptomFlags(entries: SymptomEntry[]): SymptomFlag[] {
+export async function getPetSymptomFlagCount(
+    discharges: Discharge[],
+    dayRange: number = 14
+): Promise<number> {
+    try {
+        const analysis = await analyzePetSymptoms(discharges, dayRange);
+        return analysis.totalFlagCount;
+    } catch (error) {
+        console.error('Error getting pet symptom flag count:', error);
+        return 0;
+    }
+}
+
+/**
+ * Get symptom flag count for single discharge (existing function - kept for compatibility)
+ */
+export async function getSymptomFlagCount(
+    dischargeId: string,
+    clinicId: string,
+    dayRange: number = 14
+): Promise<number> {
+    try {
+        const analysis = await analyzeSymptoms(dischargeId, clinicId, dayRange);
+        return analysis.flags.length;
+    } catch (error) {
+        console.error('Error getting symptom flag count:', error);
+        return 0;
+    }
+}
+
+/**
+ * Helper function to count flags from currently active discharges
+ */
+function countActiveDischargeFlagsFlags(discharges: Discharge[], flags: SymptomFlag[]): number {
+    const now = new Date();
+
+    // Determine which discharges are currently active
+    const activeDischargeIds = discharges
+        .filter(discharge => isDischargeActive(discharge, now))
+        .map(discharge => discharge.id);
+
+    // Count flags from active discharges only
+    return flags.filter(flag => activeDischargeIds.includes(flag.dischargeId)).length;
+}
+
+/**
+ * Helper function to determine if a discharge is currently active
+ */
+function isDischargeActive(discharge: Discharge, currentDate: Date): boolean {
+    // A discharge is active if it has any medications that are currently active
+    return discharge.medications.some(med => {
+        const startDate = new Date(med.startDate || discharge.createdAt);
+
+        // If medication has an explicit end date
+        if (med.endDate) {
+            const endDate = new Date(med.endDate);
+            return currentDate >= startDate && currentDate <= endDate;
+        }
+
+        // For tapered medications, check if we're within any taper stage
+        if (med.isTapered && med.taperStages.length > 0) {
+            return med.taperStages.some(stage => {
+                const stageStart = new Date(stage.startDate);
+                const stageEnd = new Date(stage.endDate);
+                return currentDate >= stageStart && currentDate <= stageEnd;
+            });
+        }
+
+        // For medications with totalDoses, consider active if within reasonable timeframe
+        if (med.totalDoses) {
+            const daysSinceStart = (currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
+            return daysSinceStart <= 30;
+        }
+
+        // Default: consider active if started within last 30 days
+        const daysSinceStart = (currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
+        return daysSinceStart <= 30;
+    });
+}
+
+/**
+ * Generate symptom flags based on the defined rules (enhanced with discharge tracking)
+ */
+function generateSymptomFlags(entries: SymptomEntry[], dischargeId: string): SymptomFlag[] {
     const flags: SymptomFlag[] = [];
 
     if (entries.length === 0) return flags;
@@ -163,25 +355,24 @@ function generateSymptomFlags(entries: SymptomEntry[]): SymptomFlag[] {
         ? sevenDayEntries.reduce((sum, e) => sum + e.energyLevel, 0) / sevenDayEntries.length
         : 0;
 
-    // Check each day for flag conditions
+    // Process each entry for potential flags
     for (let i = 0; i < entries.length; i++) {
         const today = entries[i];
         const yesterday = i + 1 < entries.length ? entries[i + 1] : null;
-
-        // Ensure yesterday is actually the day before (consecutive days)
         const isConsecutive = yesterday &&
-            new Date(today.date).getTime() - new Date(yesterday.date).getTime() === 24 * 60 * 60 * 1000;
+            (new Date(today.date).getTime() - new Date(yesterday.date).getTime()) === (24 * 60 * 60 * 1000);
 
-        // Rule 1: Appetite ≤ 2 two days in a row
+        // Rule 1: Low appetite ≤ 2 for 2+ consecutive days
         if (today.appetite <= 2 && yesterday && yesterday.appetite <= 2 && isConsecutive) {
             const existingFlag = flags.find(f => f.type === 'appetite_low' && f.date === today.date);
             if (!existingFlag) {
                 flags.push({
                     type: 'appetite_low',
                     date: today.date,
-                    description: `Low appetite (${today.appetite}/5) for 2+ consecutive days`,
+                    description: `Low appetite (${today.appetite}/5) for multiple days`,
                     severity: today.appetite === 1 ? 'high' : 'medium',
-                    value: today.appetite
+                    value: today.appetite,
+                    dischargeId
                 });
             }
         }
@@ -196,21 +387,23 @@ function generateSymptomFlags(entries: SymptomEntry[]): SymptomFlag[] {
                     description: `Appetite dropped ${Math.round((appetiteAvg - today.appetite) * 10) / 10} points below recent average`,
                     severity: (appetiteAvg - today.appetite) >= 3 ? 'high' : 'medium',
                     value: today.appetite,
-                    previousValue: Math.round(appetiteAvg * 10) / 10
+                    previousValue: Math.round(appetiteAvg * 10) / 10,
+                    dischargeId
                 });
             }
         }
 
-        // Rule 3: Energy ≤ 2 two days in a row
+        // Rule 3: Low energy ≤ 2 for 2+ consecutive days
         if (today.energyLevel <= 2 && yesterday && yesterday.energyLevel <= 2 && isConsecutive) {
             const existingFlag = flags.find(f => f.type === 'energy_low' && f.date === today.date);
             if (!existingFlag) {
                 flags.push({
                     type: 'energy_low',
                     date: today.date,
-                    description: `Low energy (${today.energyLevel}/5) for 2+ consecutive days`,
+                    description: `Low energy (${today.energyLevel}/5) for multiple days`,
                     severity: today.energyLevel === 1 ? 'high' : 'medium',
-                    value: today.energyLevel
+                    value: today.energyLevel,
+                    dischargeId
                 });
             }
         }
@@ -225,7 +418,8 @@ function generateSymptomFlags(entries: SymptomEntry[]): SymptomFlag[] {
                     description: `Energy dropped ${Math.round((energyAvg - today.energyLevel) * 10) / 10} points below recent average`,
                     severity: (energyAvg - today.energyLevel) >= 3 ? 'high' : 'medium',
                     value: today.energyLevel,
-                    previousValue: Math.round(energyAvg * 10) / 10
+                    previousValue: Math.round(energyAvg * 10) / 10,
+                    dischargeId
                 });
             }
         }
@@ -238,7 +432,8 @@ function generateSymptomFlags(entries: SymptomEntry[]): SymptomFlag[] {
                     type: 'panting_persistent',
                     date: today.date,
                     description: 'Persistent panting for 2+ consecutive days',
-                    severity: 'medium'
+                    severity: 'medium',
+                    dischargeId
                 });
             }
         }
@@ -249,7 +444,7 @@ function generateSymptomFlags(entries: SymptomEntry[]): SymptomFlag[] {
 }
 
 /**
- * Calculate symptom trends
+ * Calculate symptom trends (enhanced)
  */
 function calculateSymptomTrends(entries: SymptomEntry[]) {
     if (entries.length === 0) {
@@ -306,19 +501,18 @@ function calculateSymptomTrends(entries: SymptomEntry[]) {
 }
 
 /**
- * Get symptom flag count for patient dashboard badge
+ * Helper function to create empty analysis
  */
-export async function getSymptomFlagCount(
-    dischargeId: string,
-    clinicId: string
-): Promise<number> {
-    try {
-        const analysis = await analyzeSymptoms(dischargeId, clinicId, 14); // Last 2 weeks
-        return analysis.flags.length;
-    } catch (error) {
-        console.error('Error getting symptom flag count:', error);
-        return 0;
-    }
+function createEmptyAnalysis(): SymptomAnalysis {
+    return {
+        flags: [],
+        recentEntries: [],
+        trends: {
+            appetite: { current: 0, sevenDayAverage: 0, trend: 'stable' },
+            energy: { current: 0, sevenDayAverage: 0, trend: 'stable' },
+            panting: { recentDays: 0, isFrequent: false }
+        }
+    };
 }
 
 /**

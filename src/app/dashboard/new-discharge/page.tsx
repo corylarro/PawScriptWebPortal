@@ -14,6 +14,9 @@ import { COLLECTIONS } from '@/types/firestore';
 import ClientSearchForm from '@/components/ClientSearchForm';
 import PetSelectForm from '@/components/PetSelectForm';
 import MedicationForm from '@/components/MedicationForm';
+import { generatePetId, generateMedId } from '@/lib/idGeneration';
+
+
 
 export default function NewDischargePage() {
     const { vetUser, clinic } = useAuth();
@@ -116,6 +119,7 @@ export default function NewDischargePage() {
     // Medication handlers
     const handleAddMedication = () => {
         const newMedication: Medication = {
+            medId: generateMedId(), // NEW - generate unique medication ID
             name: '',
             dosage: '',
             frequency: 1,
@@ -126,7 +130,7 @@ export default function NewDischargePage() {
             instructions: '',
             allowClientToAdjustTime: true,
             isTapered: false,
-            isEveryOtherDay: false, // ADD THIS LINE
+            isEveryOtherDay: false,
             taperStages: []
             // Note: totalDoses is undefined by default
         };
@@ -172,8 +176,14 @@ export default function NewDischargePage() {
         try {
             console.log('Creating discharge document...');
 
+            // Generate unique pet ID for this discharge
+            const petId = generatePetId();
+
             // Clean medications data with mobile app requirements
             const cleanedMedications = medications.map(med => {
+                // Generate unique medication ID for each medication
+                const medId = generateMedId();
+
                 if (med.isTapered) {
                     // TAPERED MEDICATION
                     const cleanTaperStages = med.taperStages.map(stage => {
@@ -205,6 +215,7 @@ export default function NewDischargePage() {
                     });
 
                     return {
+                        medId, // NEW - unique medication ID
                         name: med.name,
                         instructions: med.instructions,
                         allowClientToAdjustTime: med.allowClientToAdjustTime || false,
@@ -237,6 +248,7 @@ export default function NewDischargePage() {
                     }
 
                     const cleanMed: Record<string, unknown> = {
+                        medId, // NEW - unique medication ID
                         name: med.name,
                         instructions: med.instructions,
                         allowClientToAdjustTime: med.allowClientToAdjustTime || false,
@@ -262,11 +274,12 @@ export default function NewDischargePage() {
             // Prepare discharge data with mobile app requirements
             const dischargeData: Record<string, unknown> = {
                 pet: {
+                    petId, // NEW - unique pet ID
                     name: selectedPet.name,
                     species: selectedPet.species,
                     weight: selectedPet.weight || ''
                 },
-                medications: cleanedMedications,
+                medications: cleanedMedications, // Now includes medId for each medication
                 vetId: vetUser.id,
                 clinicId: clinic.id,
 
@@ -287,16 +300,14 @@ export default function NewDischargePage() {
                 dischargeData.notes = visitInfo.notes;
             }
 
-            console.log('Mobile-app-ready discharge data:', dischargeData);
+            console.log('Discharge data with petId and medIds:', dischargeData);
+            console.log('Generated petId:', petId);
+            console.log('Generated medIds:', cleanedMedications.map(med => ({ name: med.name, medId: med.medId })));
 
             // Save to Firestore
             const docRef = await addDoc(collection(db, COLLECTIONS.DISCHARGES), dischargeData);
 
             console.log('Discharge created with ID:', docRef.id);
-            console.log('About to save discharge data:', dischargeData);
-            console.log('Clinic object:', clinic);
-            console.log('VetUser object:', vetUser);
-            
 
             // Navigate to success page with discharge ID
             router.push(`/dashboard/discharge-success?id=${docRef.id}`);
