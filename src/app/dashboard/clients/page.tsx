@@ -3,12 +3,12 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { collection, query, where, orderBy, getDocs, limit, startAfter, DocumentSnapshot } from 'firebase/firestore';
 import { useAuth } from '@/hooks/useAuth';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { db } from '@/lib/firebase';
 import { COLLECTIONS } from '@/types/firestore';
+import Navigation from '@/components/Navigation';
 
 // Client interface with summary data
 interface ClientSummary {
@@ -254,14 +254,15 @@ export default function ClientListPage() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                backgroundColor: '#f8fafc'
+                backgroundColor: '#f8fafc',
+                fontFamily: 'Nunito, -apple-system, BlinkMacSystemFont, sans-serif'
             }}>
                 <div style={{ textAlign: 'center' }}>
                     <div style={{
                         width: '48px',
                         height: '48px',
                         border: '3px solid #e2e8f0',
-                        borderTop: '3px solid #2563eb',
+                        borderTop: '3px solid #007AFF',
                         borderRadius: '50%',
                         animation: 'spin 1s linear infinite',
                         margin: '0 auto 1rem auto'
@@ -279,216 +280,8 @@ export default function ClientListPage() {
             fontFamily: 'Nunito, -apple-system, BlinkMacSystemFont, sans-serif',
             overflowX: 'hidden'
         }}>
-            {/* Header */}
-            <header style={{
-                backgroundColor: 'white',
-                borderBottom: '1px solid #e2e8f0',
-                padding: isMobile ? '1rem' : '1rem 2rem',
-                position: 'sticky',
-                top: 0,
-                zIndex: 10,
-                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
-            }}>
-                <div style={{
-                    maxWidth: '1200px',
-                    margin: '0 auto',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    flexWrap: isMobile ? 'wrap' : 'nowrap'
-                }}>
-                    {/* Logo & Navigation */}
-                    <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: isMobile ? '1rem' : '2rem',
-                        width: isMobile ? '100%' : 'auto',
-                        justifyContent: isMobile ? 'space-between' : 'flex-start'
-                    }}>
-                        <Link href="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', textDecoration: 'none' }}>
-                            <div style={{
-                                width: isMobile ? '32px' : '36px',
-                                height: isMobile ? '32px' : '36px',
-                                position: 'relative',
-                                borderRadius: '8px',
-                                overflow: 'hidden'
-                            }}>
-                                <Image
-                                    src="/images/pawscript-logo.png"
-                                    alt="PawScript Logo"
-                                    fill
-                                    style={{ objectFit: 'cover' }}
-                                />
-                            </div>
-                            <span style={{
-                                fontSize: isMobile ? '1.125rem' : '1.25rem',
-                                fontWeight: '700',
-                                color: '#1e293b'
-                            }}>
-                                PawScript
-                            </span>
-                        </Link>
-
-                        {!isMobile && (
-                            <nav style={{ display: 'flex', gap: '1.5rem' }}>
-                                <Link
-                                    href="/dashboard"
-                                    style={{
-                                        color: '#64748b',
-                                        textDecoration: 'none',
-                                        fontSize: '0.875rem',
-                                        fontWeight: '500'
-                                    }}
-                                >
-                                    Dashboard
-                                </Link>
-                                <Link
-                                    href="/dashboard/clients"
-                                    style={{
-                                        color: '#2563eb',
-                                        textDecoration: 'none',
-                                        fontSize: '0.875rem',
-                                        fontWeight: '600',
-                                        borderBottom: '2px solid #2563eb',
-                                        paddingBottom: '0.25rem'
-                                    }}
-                                >
-                                    Clients
-                                </Link>
-                                <Link
-                                    href="/dashboard/patients"
-                                    style={{
-                                        color: '#64748b',
-                                        textDecoration: 'none',
-                                        fontSize: '0.875rem',
-                                        fontWeight: '500'
-                                    }}
-                                >
-                                    Patients
-                                </Link>
-                                <Link
-                                    href="/dashboard/new-discharge"
-                                    style={{
-                                        color: '#64748b',
-                                        textDecoration: 'none',
-                                        fontSize: '0.875rem',
-                                        fontWeight: '500'
-                                    }}
-                                >
-                                    New Discharge
-                                </Link>
-                            </nav>
-                        )}
-                    </div>
-
-                    {/* User Info */}
-                    {!isMobile && (
-                        <div style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.75rem'
-                        }}>
-                            <div style={{
-                                width: '32px',
-                                height: '32px',
-                                backgroundColor: '#2563eb',
-                                borderRadius: '50%',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                color: 'white',
-                                fontSize: '0.875rem',
-                                fontWeight: '600'
-                            }}>
-                                {vetUser?.firstName?.[0] || 'U'}
-                            </div>
-                            <div>
-                                <div style={{
-                                    fontSize: '0.875rem',
-                                    fontWeight: '600',
-                                    color: '#1e293b'
-                                }}>
-                                    Dr. {vetUser?.firstName} {vetUser?.lastName}
-                                </div>
-                                <div style={{
-                                    fontSize: '0.75rem',
-                                    color: '#64748b'
-                                }}>
-                                    {clinic?.name}
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Mobile Navigation */}
-                    {isMobile && (
-                        <div style={{
-                            width: '100%',
-                            marginTop: '1rem',
-                            borderTop: '1px solid #e2e8f0',
-                            paddingTop: '1rem'
-                        }}>
-                            <nav style={{
-                                display: 'flex',
-                                gap: '1rem',
-                                overflowX: 'auto',
-                                paddingBottom: '0.5rem'
-                            }}>
-                                <Link
-                                    href="/dashboard"
-                                    style={{
-                                        color: '#64748b',
-                                        textDecoration: 'none',
-                                        fontSize: '0.875rem',
-                                        fontWeight: '500',
-                                        whiteSpace: 'nowrap'
-                                    }}
-                                >
-                                    Dashboard
-                                </Link>
-                                <Link
-                                    href="/dashboard/clients"
-                                    style={{
-                                        color: '#2563eb',
-                                        textDecoration: 'none',
-                                        fontSize: '0.875rem',
-                                        fontWeight: '600',
-                                        borderBottom: '2px solid #2563eb',
-                                        paddingBottom: '0.25rem',
-                                        whiteSpace: 'nowrap'
-                                    }}
-                                >
-                                    Clients
-                                </Link>
-                                <Link
-                                    href="/dashboard/patients"
-                                    style={{
-                                        color: '#64748b',
-                                        textDecoration: 'none',
-                                        fontSize: '0.875rem',
-                                        fontWeight: '500',
-                                        whiteSpace: 'nowrap'
-                                    }}
-                                >
-                                    Patients
-                                </Link>
-                                <Link
-                                    href="/dashboard/new-discharge"
-                                    style={{
-                                        color: '#64748b',
-                                        textDecoration: 'none',
-                                        fontSize: '0.875rem',
-                                        fontWeight: '500',
-                                        whiteSpace: 'nowrap'
-                                    }}
-                                >
-                                    New Discharge
-                                </Link>
-                            </nav>
-                        </div>
-                    )}
-                </div>
-            </header>
+            {/* Navigation Component */}
+            <Navigation activeRoute="/dashboard/clients" />
 
             {/* Main Content */}
             <main style={{
@@ -566,7 +359,7 @@ export default function ClientListPage() {
                         <div style={{
                             fontSize: isMobile ? '1.5rem' : '2rem',
                             fontWeight: '700',
-                            color: '#2563eb',
+                            color: '#007AFF',
                             marginBottom: '0.5rem'
                         }}>
                             {filteredClients.length}
@@ -590,7 +383,7 @@ export default function ClientListPage() {
                         <div style={{
                             fontSize: isMobile ? '1.5rem' : '2rem',
                             fontWeight: '700',
-                            color: '#16a34a',
+                            color: '#34C759',
                             marginBottom: '0.5rem'
                         }}>
                             {filteredClients.filter(c => c.isActive).length}
@@ -614,7 +407,7 @@ export default function ClientListPage() {
                         <div style={{
                             fontSize: isMobile ? '1.5rem' : '2rem',
                             fontWeight: '700',
-                            color: '#f59e0b',
+                            color: '#FF9500',
                             marginBottom: '0.5rem'
                         }}>
                             {filteredClients.reduce((sum, c) => sum + c.petCount, 0)}
@@ -695,7 +488,7 @@ export default function ClientListPage() {
                         <button
                             onClick={() => setShowInactive(!showInactive)}
                             style={{
-                                backgroundColor: showInactive ? '#2563eb' : '#f1f5f9',
+                                backgroundColor: showInactive ? '#007AFF' : '#f1f5f9',
                                 color: showInactive ? 'white' : '#64748b',
                                 border: '1px solid #e2e8f0',
                                 padding: '0.75rem 1rem',
@@ -817,7 +610,7 @@ export default function ClientListPage() {
                                                 </div>
                                                 <span style={{
                                                     backgroundColor: client.isActive ? '#dcfce7' : '#f3f4f6',
-                                                    color: client.isActive ? '#16a34a' : '#6b7280',
+                                                    color: client.isActive ? '#34C759' : '#6b7280',
                                                     fontSize: '0.75rem',
                                                     fontWeight: '600',
                                                     padding: '0.25rem 0.5rem',
@@ -954,7 +747,7 @@ export default function ClientListPage() {
                                             <div style={{ textAlign: 'center' }}>
                                                 <span style={{
                                                     backgroundColor: client.isActive ? '#dcfce7' : '#f3f4f6',
-                                                    color: client.isActive ? '#16a34a' : '#6b7280',
+                                                    color: client.isActive ? '#34C759' : '#6b7280',
                                                     fontSize: '0.75rem',
                                                     fontWeight: '600',
                                                     padding: '0.25rem 0.5rem',
@@ -994,7 +787,7 @@ export default function ClientListPage() {
                                         onClick={handleLoadMore}
                                         disabled={loadingMore}
                                         style={{
-                                            backgroundColor: loadingMore ? '#f1f5f9' : '#2563eb',
+                                            backgroundColor: loadingMore ? '#f1f5f9' : '#007AFF',
                                             color: loadingMore ? '#64748b' : 'white',
                                             border: 'none',
                                             padding: '0.75rem 1.5rem',

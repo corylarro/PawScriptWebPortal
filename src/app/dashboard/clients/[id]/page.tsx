@@ -9,6 +9,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { db } from '@/lib/firebase';
 import { COLLECTIONS, Client, Pet } from '@/types/firestore';
+import Navigation from '@/components/Navigation';
+import PetModal from '@/components/PetModal'; // Add this import
 
 // Extended Pet interface for the detail view (adds computed fields)
 interface PetWithMedications extends Pet {
@@ -44,6 +46,11 @@ export default function ClientDetailPage() {
     const [isEditing, setIsEditing] = useState(false);
     const [editForm, setEditForm] = useState<Partial<Client>>({});
     const [saving, setSaving] = useState(false);
+
+    // Pet Modal state - ADD THESE LINES
+    const [isPetModalOpen, setIsPetModalOpen] = useState(false);
+    const [editingPet, setEditingPet] = useState<Pet | null>(null);
+    const [petModalMode, setPetModalMode] = useState<'add' | 'edit'>('add');
 
     // Load client info first
     useEffect(() => {
@@ -167,6 +174,8 @@ export default function ClientDetailPage() {
                         species: petData.species || '',
                         breed: petData.breed || '',
                         weight: petData.weight || '',
+                        ageAtCreation: petData.ageAtCreation,
+                        ageAsOfDate: petData.ageAsOfDate?.toDate(),
                         dateOfBirth: petData.dateOfBirth?.toDate(),
                         microchipNumber: petData.microchipNumber || '',
                         clientId: petData.clientId || '',
@@ -265,6 +274,29 @@ export default function ClientDetailPage() {
         }
     };
 
+    // ADD THESE FUNCTIONS
+    const handleEditPet = (pet: Pet) => {
+        setEditingPet(pet);
+        setPetModalMode('edit');
+        setIsPetModalOpen(true);
+    };
+
+    const handleAddPet = () => {
+        setEditingPet(null);
+        setPetModalMode('add');
+        setIsPetModalOpen(true);
+    };
+
+    const handlePetModalClose = () => {
+        setIsPetModalOpen(false);
+        setEditingPet(null);
+    };
+
+    const handlePetSaved = () => {
+        // Reload pets when a pet is saved
+        loadPets();
+    };
+
     const formatRelativeTime = (date: Date) => {
         const now = new Date();
         const diffMs = now.getTime() - date.getTime();
@@ -296,7 +328,8 @@ export default function ClientDetailPage() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                backgroundColor: '#f8fafc'
+                backgroundColor: '#f8fafc',
+                fontFamily: 'Nunito, -apple-system, BlinkMacSystemFont, sans-serif'
             }}>
                 <div style={{ textAlign: 'center' }}>
                     <div style={{
@@ -321,7 +354,8 @@ export default function ClientDetailPage() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                backgroundColor: '#f8fafc'
+                backgroundColor: '#f8fafc',
+                fontFamily: 'Nunito, -apple-system, BlinkMacSystemFont, sans-serif'
             }}>
                 <div style={{ textAlign: 'center', maxWidth: '400px' }}>
                     <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🐾</div>
@@ -361,104 +395,10 @@ export default function ClientDetailPage() {
         <div style={{
             minHeight: '100vh',
             backgroundColor: '#f8fafc',
-            fontFamily: 'Nunito, system-ui, sans-serif'
+            fontFamily: 'Nunito, -apple-system, BlinkMacSystemFont, sans-serif'
         }}>
-            {/* Header */}
-            <div style={{
-                backgroundColor: 'white',
-                borderBottom: '1px solid #e2e8f0',
-                padding: '1rem 2rem'
-            }}>
-                <div style={{
-                    maxWidth: '1200px',
-                    margin: '0 auto',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center'
-                }}>
-                    {/* Logo & Navigation */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
-                        <Link
-                            href="/dashboard"
-                            style={{
-                                fontSize: '1.5rem',
-                                fontWeight: '700',
-                                color: '#007AFF',
-                                textDecoration: 'none',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '0.5rem'
-                            }}
-                        >
-                            🐾 PawScript
-                        </Link>
-
-                        <nav style={{ display: 'flex', gap: '1rem' }}>
-                            <Link
-                                href="/dashboard"
-                                style={{
-                                    color: '#64748b',
-                                    textDecoration: 'none',
-                                    fontSize: '0.875rem',
-                                    fontWeight: '500'
-                                }}
-                            >
-                                Dashboard
-                            </Link>
-                            <Link
-                                href="/dashboard/clients"
-                                style={{
-                                    color: '#007AFF',
-                                    textDecoration: 'none',
-                                    fontSize: '0.875rem',
-                                    fontWeight: '600',
-                                    borderBottom: '2px solid #007AFF',
-                                    paddingBottom: '0.25rem'
-                                }}
-                            >
-                                Clients & Pets
-                            </Link>
-                        </nav>
-                    </div>
-
-                    {/* User Info */}
-                    <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.75rem'
-                    }}>
-                        <div style={{
-                            width: '32px',
-                            height: '32px',
-                            backgroundColor: '#007AFF',
-                            borderRadius: '50%',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            color: 'white',
-                            fontSize: '0.875rem',
-                            fontWeight: '600'
-                        }}>
-                            {vetUser?.firstName?.[0] || 'U'}
-                        </div>
-                        <div>
-                            <div style={{
-                                fontSize: '0.875rem',
-                                fontWeight: '600',
-                                color: '#1e293b'
-                            }}>
-                                Dr. {vetUser?.firstName} {vetUser?.lastName}
-                            </div>
-                            <div style={{
-                                fontSize: '0.75rem',
-                                color: '#64748b'
-                            }}>
-                                {clinic?.name}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            {/* Navigation Component */}
+            <Navigation activeRoute="/dashboard/clients" />
 
             {/* Main Content */}
             <div style={{
@@ -673,17 +613,51 @@ export default function ClientDetailPage() {
                     boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
                     border: '1px solid #e2e8f0'
                 }}>
-                    <h2 style={{
-                        fontSize: '1.5rem',
-                        fontWeight: '700',
-                        color: '#1e293b',
-                        marginBottom: '1.5rem',
+                    <div style={{
                         display: 'flex',
+                        justifyContent: 'space-between',
                         alignItems: 'center',
-                        gap: '0.5rem'
+                        marginBottom: '1.5rem'
                     }}>
-                        🐾 Pets ({pets.length})
-                    </h2>
+                        <h2 style={{
+                            fontSize: '1.5rem',
+                            fontWeight: '700',
+                            color: '#1e293b',
+                            margin: 0,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem'
+                        }}>
+                            🐾 Pets ({pets.length})
+                        </h2>
+
+                        {/* ADD PET BUTTON */}
+                        <button
+                            onClick={handleAddPet}
+                            style={{
+                                backgroundColor: '#16a34a',
+                                color: 'white',
+                                border: 'none',
+                                padding: '0.75rem 1.5rem',
+                                borderRadius: '8px',
+                                fontSize: '0.875rem',
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.5rem'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = '#15803d';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = '#16a34a';
+                            }}
+                        >
+                            + Add Pet
+                        </button>
+                    </div>
 
                     {loadingPets ? (
                         <div style={{
@@ -717,9 +691,24 @@ export default function ClientDetailPage() {
                             }}>
                                 No pets found
                             </h4>
-                            <p style={{ fontSize: '0.875rem' }}>
+                            <p style={{ fontSize: '0.875rem', marginBottom: '1.5rem' }}>
                                 This client doesn&apos;t have any pets registered yet.
                             </p>
+                            <button
+                                onClick={handleAddPet}
+                                style={{
+                                    backgroundColor: '#16a34a',
+                                    color: 'white',
+                                    border: 'none',
+                                    padding: '0.75rem 1.5rem',
+                                    borderRadius: '8px',
+                                    fontSize: '0.875rem',
+                                    fontWeight: '600',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Add First Pet
+                            </button>
                         </div>
                     ) : (
                         <div style={{
@@ -794,12 +783,13 @@ export default function ClientDetailPage() {
                                         </div>
                                     </div>
 
-                                    {/* Actions - Only Edit Pet button now */}
+                                    {/* Actions - UPDATED EDIT BUTTON */}
                                     <div style={{
                                         display: 'flex',
                                         justifyContent: 'flex-end'
                                     }}>
                                         <button
+                                            onClick={() => handleEditPet(pet)}
                                             style={{
                                                 backgroundColor: '#f1f5f9',
                                                 color: '#64748b',
@@ -985,7 +975,7 @@ export default function ClientDetailPage() {
                                                 e.currentTarget.style.backgroundColor = '#007AFF';
                                             }}
                                         >
-                                            View Discharge Summary
+                                            View Medication Adherence
                                         </Link>
                                     </div>
                                 </div>
@@ -994,6 +984,19 @@ export default function ClientDetailPage() {
                     )}
                 </div>
             </div>
+
+            {/* Pet Modal - ADD THIS */}
+            {client && clinic && (
+                <PetModal
+                    client={client}
+                    clinicId={clinic.id}
+                    isOpen={isPetModalOpen}
+                    onClose={handlePetModalClose}
+                    onPetSaved={handlePetSaved}
+                    mode={petModalMode}
+                    pet={editingPet || undefined}
+                />
+            )}
 
             {/* Loading/Spinning Animation CSS */}
             <style jsx>{`

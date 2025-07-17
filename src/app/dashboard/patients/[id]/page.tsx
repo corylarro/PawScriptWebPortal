@@ -1,4 +1,4 @@
-// app/dashboard/patients/[id]/page.tsx
+// src/app/dashboard/patients/[id]/page.tsx - Fixed with Real Data Loading
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -10,52 +10,57 @@ import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { db } from '@/lib/firebase';
 import { COLLECTIONS } from '@/types/firestore';
 import { Discharge } from '@/types/discharge';
-import { getAllDischargesForPet, getAllAdherenceForPet, getAllSymptomLogsForPet } from '@/lib/petDataUtils';
+import { getPetMetrics } from '@/lib/petDataUtils';
+import Navigation from '@/components/Navigation';
 
-// Import modularized tab components - keep the original architecture
+// Import data loading functions
+import { calculateAdherenceMetrics, getRecentAdherenceRecords, AdherenceMetrics, AdherenceRecord } from '@/lib/adherence';
+import { analyzeSymptoms, SymptomAnalysis } from '@/lib/symptomFlags';
+
+// Import modularized tab components
 import SymptomsTab from '@/components/patientDetail/SymptomsTab';
 import MedicationsTab from '@/components/patientDetail/MedicationsTab';
 import TimelineTab from '@/components/patientDetail/TimelineTab';
 import RecentDischargesTab from '@/components/patientDetail/RecentDischargesTab';
-import { ExtendedSymptomAnalysis } from '@/components/patientDetail/SymptomsTab';
 
-// Enhanced types for aggregated data
-interface AggregatedPatientData {
-    primaryDischarge: Discharge; // The discharge we're viewing
-    allDischarges: Discharge[]; // All discharges for this pet
-    aggregatedAdherence: {
-        overall: {
-            totalDoses: number;
-            givenDoses: number;
-            lateDoses: number;
-            missedDoses: number;
-            adherenceRate: number;
-        };
-        perMedication: Array<{
-            medicationName: string;
-            totalDoses: number;
-            onTimeDoses: number;
-            lateDoses: number;
-            missedDoses: number;
-            adherenceRate: number;
-        }>;
-        timeline: Array<{
-            date: string;
-            scheduledDoses: number;
-            givenDoses: number;
-            missedDoses: number;
-            adherenceRate: number;
-        }>;
+// Enhanced metrics interface for Quick Glance
+interface QuickGlanceMetrics {
+    petName: string;
+    petSpecies: string;
+    petWeight?: string;
+
+    // Key metrics for Quick Glance
+    overallAdherenceRate: number; // All meds, all discharges
+    activeOnlyAdherenceRate: number; // Active meds only
+    activeMedsCount: number;
+    archivedMedsCount: number;
+    missedDoseCount: number; // Last 30 days
+    lateDoseCount: number; // Last 30 days
+    lastDoseGivenDate?: Date;
+    currentStatus: 'active' | 'inactive';
+    recentSymptomAlerts: number; // Last 14 days
+    totalVisits: number;
+    lastVisitDate: Date;
+}
+
+// Simple RecentDischarge interface to match tab components
+interface RecentDischarge {
+    id: string;
+    pet: {
+        name: string;
+        species: string;
+        weight?: string;
     };
-    aggregatedSymptoms: ExtendedSymptomAnalysis;
-    timelineEvents: TimelineEvent[];
-    lastActivity?: Date;
+    createdAt: Date;
+    adherenceRate: number;
+    symptomFlagCount: number;
     isActive: boolean;
 }
 
-interface TimelineEvent {
+// Timeline event interface for patient detail
+interface PatientTimelineEvent {
     id: string;
-    type: 'dose' | 'symptom_flag' | 'new_discharge';
+    type: 'dose' | 'symptom_flag';
     date: string;
     time?: string;
     title: string;
@@ -64,6 +69,7 @@ interface TimelineEvent {
     delay?: number;
     medicationName?: string;
     dischargeId?: string;
+    sortTime: Date;
 }
 
 export default function PatientDetailPage() {
@@ -71,156 +77,153 @@ export default function PatientDetailPage() {
     const { vetUser, clinic } = useAuth();
     const { loading: authLoading } = useRequireAuth();
 
-    // Core state for aggregated data
-    const [patientData, setPatientData] = useState<AggregatedPatientData | null>(null);
+    // Core state
+    const [discharge, setDischarge] = useState<Discharge | null>(null);
+    const [allDischarges, setAllDischarges] = useState<Discharge[]>([]);
+    const [quickGlanceMetrics, setQuickGlanceMetrics] = useState<QuickGlanceMetrics | null>(null);
+
+    // Real data state for tabs
+    const [adherenceMetrics, setAdherenceMetrics] = useState<AdherenceMetrics | null>(null);
+    const [symptomAnalysis, setSymptomAnalysis] = useState<SymptomAnalysis | null>(null);
+    const [timelineEvents, setTimelineEvents] = useState<PatientTimelineEvent[]>([]);
+
     const [loading, setLoading] = useState(true);
+    const [dataLoading, setDataLoading] = useState(true);
     const [error, setError] = useState('');
     const [activeTab, setActiveTab] = useState<'recent' | 'medications' | 'symptoms' | 'timeline'>('recent');
+    const [isMobile, setIsMobile] = useState(false);
 
-    // Build comprehensive timeline from all sources
-    const buildComprehensiveTimeline = async (
-        allDischarges: Discharge[],
-        adherenceRecords: any[],
-        symptomAnalysis: ExtendedSymptomAnalysis
-    ): Promise<TimelineEvent[]> => {
-        const events: TimelineEvent[] = [];
+    // Check if mobile on mount
+    useEffect(() => {
+        const checkMobile = () => setIsMobile(window.innerWidth < 768);
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
 
-        // Add discharge events
-        allDischarges.forEach(discharge => {
+    // Convert all discharges to RecentDischarge format for tab compatibility
+    const recentDischarges: RecentDischarge[] = allDischarges.map(discharge => ({
+        id: discharge.id,
+        pet: discharge.pet,
+        createdAt: discharge.createdAt,
+        adherenceRate: 0, // Will be calculated by tab components
+        symptomFlagCount: 0, // Will be calculated by tab components
+        isActive: true // Will be determined by tab components
+    }));
+
+    // Helper function to create timeline events from adherence records
+    const createTimelineEvents = (records: AdherenceRecord[], symptoms: SymptomAnalysis): PatientTimelineEvent[] => {
+        const events: PatientTimelineEvent[] = [];
+
+        // Add dose events
+        records.forEach(record => {
+            const scheduledDate = record.scheduledTime.toDate();
+            const givenDate = record.givenAt?.toDate();
+
+            // Calculate delay if dose was given late
+            let delay = 0;
+            let severity: 'low' | 'medium' | 'high' = 'low';
+
+            if (record.status === 'given' && givenDate) {
+                delay = Math.round((givenDate.getTime() - scheduledDate.getTime()) / (1000 * 60 * 60)); // hours
+                if (delay > 6) severity = 'high';
+                else if (delay > 2) severity = 'medium';
+            } else if (record.status === 'missed') {
+                severity = 'high';
+            }
+
+            const title = record.status === 'given' ? 'Dose Given' :
+                record.status === 'missed' ? 'Dose Missed' : 'Dose Skipped';
+
+            const description = record.status === 'given'
+                ? `${record.dosage} of ${record.medicationName}${delay > 2 ? ` (${delay}h late)` : ''}`
+                : `${record.dosage} of ${record.medicationName}`;
+
             events.push({
-                id: `discharge-${discharge.id}`,
-                type: 'new_discharge',
-                date: discharge.createdAt.toISOString().split('T')[0],
-                time: discharge.createdAt.toLocaleTimeString('en-US', {
-                    hour: '2-digit',
-                    minute: '2-digit'
-                }),
-                title: 'New Discharge Summary',
-                description: `${discharge.medications.length} medications prescribed`,
-                dischargeId: discharge.id
-            });
-        });
-
-        // Add dose events from adherence records
-        adherenceRecords.forEach(record => {
-            const scheduledTime = record.scheduledTime.toDate();
-            const delay = record.givenAt && record.status === 'given'
-                ? Math.round((record.givenAt.toDate().getTime() - scheduledTime.getTime()) / (1000 * 60))
-                : undefined;
-
-            events.push({
-                id: `dose-${record.id}`,
+                id: record.id,
                 type: 'dose',
-                date: scheduledTime.toISOString().split('T')[0],
-                time: scheduledTime.toLocaleTimeString('en-US', {
-                    hour: '2-digit',
-                    minute: '2-digit'
+                date: scheduledDate.toISOString().split('T')[0],
+                time: (givenDate || scheduledDate).toLocaleTimeString('en-US', {
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true
                 }),
-                title: record.status === 'given' ? 'Dose Given' : 'Dose Missed',
-                description: `${record.medicationName} - ${record.dosage}`,
-                severity: record.status === 'missed' ? 'medium' :
-                    (delay && delay > 120) ? 'low' : undefined,
+                title,
+                description,
+                severity,
                 delay,
                 medicationName: record.medicationName,
-                dischargeId: record.dischargeId
+                dischargeId: id as string,
+                sortTime: givenDate || scheduledDate
             });
         });
 
         // Add symptom flag events
-        symptomAnalysis.flags.forEach(flag => {
+        symptoms.flags.forEach(flag => {
             events.push({
-                id: `symptom-${flag.date}-${flag.type}`,
+                id: `symptom-${flag.type}-${flag.date}`,
                 type: 'symptom_flag',
                 date: flag.date,
                 title: 'Symptom Alert',
                 description: flag.description,
-                severity: flag.severity
+                severity: flag.severity,
+                dischargeId: id as string,
+                sortTime: new Date(flag.date)
             });
         });
 
-        // Sort by date and time, most recent first
-        return events.sort((a, b) => {
-            const dateCompare = b.date.localeCompare(a.date);
-            if (dateCompare !== 0) return dateCompare;
-
-            if (a.time && b.time) {
-                return b.time.localeCompare(a.time);
-            }
-            return 0;
-        });
+        // Sort by date/time, most recent first
+        return events.sort((a, b) => b.sortTime.getTime() - a.sortTime.getTime());
     };
 
-    // Load complete patient data across all discharges
+    // Load patient data and basic metrics
     useEffect(() => {
         const loadPatientData = async () => {
-            if (!id || !vetUser || !clinic) return;
+            if (!vetUser || !clinic || !id) return;
 
             try {
                 setLoading(true);
                 setError('');
 
-                // First, get the primary discharge we're viewing
-                const primaryDischargeDoc = await getDoc(doc(db, COLLECTIONS.DISCHARGES, id as string));
+                // Load the main discharge
+                const dischargeDoc = await getDoc(doc(db, COLLECTIONS.DISCHARGES, id as string));
 
-                if (!primaryDischargeDoc.exists()) {
-                    setError('Patient record not found');
+                if (!dischargeDoc.exists()) {
+                    setError('Patient discharge not found');
+                    setLoading(false);
                     return;
                 }
 
-                const primaryDischargeData = primaryDischargeDoc.data();
-                const primaryDischarge = {
-                    id: primaryDischargeDoc.id,
-                    ...primaryDischargeData,
-                    createdAt: primaryDischargeData.createdAt?.toDate() || new Date(),
-                    updatedAt: primaryDischargeData.updatedAt?.toDate() || new Date()
+                const dischargeData = dischargeDoc.data();
+                const mainDischarge = {
+                    id: dischargeDoc.id,
+                    ...dischargeData,
+                    createdAt: dischargeData.createdAt?.toDate() || new Date(),
+                    updatedAt: dischargeData.updatedAt?.toDate() || new Date(),
+                    visitDate: dischargeData.visitDate?.toDate() || dischargeData.createdAt?.toDate() || new Date()
                 } as Discharge;
 
-                console.log(`Loading complete data for pet: ${primaryDischarge.pet.name} (${primaryDischarge.pet.species})`);
+                setDischarge(mainDischarge);
 
-                // Get ALL discharges for this pet across all visits
-                const allDischarges = await getAllDischargesForPet(
-                    primaryDischarge.pet.name,
+                // Load enhanced metrics for this pet across ALL discharges
+                const petMetrics = await getPetMetrics(
+                    mainDischarge.pet.name,
                     clinic.id,
-                    primaryDischarge.pet.species
+                    mainDischarge.pet.species
                 );
 
-                console.log(`Found ${allDischarges.length} total discharges for this pet`);
+                setQuickGlanceMetrics(petMetrics);
 
-                // Get aggregated adherence data across ALL discharges
-                const adherenceData = await getAllAdherenceForPet(
-                    primaryDischarge.pet.name,
+                // Load ALL discharges for this pet to pass to tabs
+                const { getAllDischargesForPet } = await import('@/lib/petDataUtils');
+                const petDischarges = await getAllDischargesForPet(
+                    mainDischarge.pet.name,
                     clinic.id,
-                    primaryDischarge.pet.species,
-                    120 // Last 120 days for detailed view
+                    mainDischarge.pet.species
                 );
+                setAllDischarges(petDischarges);
 
-                // Get aggregated symptom data across ALL discharges
-                const symptomData = await getAllSymptomLogsForPet(
-                    primaryDischarge.pet.name,
-                    clinic.id,
-                    primaryDischarge.pet.species,
-                    120 // Last 120 days for detailed view
-                );
-
-                // Build comprehensive timeline from all sources
-                const timelineEvents = await buildComprehensiveTimeline(
-                    allDischarges,
-                    adherenceData.allRecords,
-                    symptomData.aggregatedAnalysis
-                );
-
-                // Assemble complete patient data
-                const aggregatedData: AggregatedPatientData = {
-                    primaryDischarge,
-                    allDischarges,
-                    aggregatedAdherence: adherenceData.aggregatedMetrics,
-                    aggregatedSymptoms: symptomData.aggregatedAnalysis,
-                    timelineEvents,
-                    lastActivity: adherenceData.lastActivity,
-                    isActive: adherenceData.isActive
-                };
-
-                setPatientData(aggregatedData);
+                console.log('Patient data loaded successfully');
 
             } catch (err) {
                 console.error('Error loading patient data:', err);
@@ -230,1277 +233,683 @@ export default function PatientDetailPage() {
             }
         };
 
-        loadPatientData();
-    }, [id, vetUser, clinic]);
+        if (!authLoading) {
+            loadPatientData();
+        }
+    }, [id, vetUser, clinic, authLoading]);
 
-    // Loading and error states
-    if (authLoading || loading) {
-        return (
-            <div style={{
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                minHeight: '400px',
-                fontFamily: 'Nunito, -apple-system, BlinkMacSystemFont, sans-serif'
-            }}>
-                <div style={{ textAlign: 'center' }}>
-                    <div style={{
-                        fontSize: '1.125rem',
-                        color: '#6D6D72',
-                        marginBottom: '0.5rem'
-                    }}>
-                        Loading patient details...
-                    </div>
-                    <div style={{
-                        width: '32px',
-                        height: '32px',
-                        border: '3px solid #F2F2F7',
-                        borderTop: '3px solid #007AFF',
-                        borderRadius: '50%',
-                        animation: 'spin 1s linear infinite',
-                        margin: '0 auto'
-                    }} />
-                </div>
-            </div>
-        );
-    }
-
-    if (error || !patientData) {
-        return (
-            <div style={{
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                minHeight: '400px',
-                fontFamily: 'Nunito, -apple-system, BlinkMacSystemFont, sans-serif'
-            }}>
-                <div style={{
-                    textAlign: 'center',
-                    backgroundColor: '#FFFFFF',
-                    padding: '2rem',
-                    borderRadius: '12px',
-                    border: '1px solid #E5E5EA'
-                }}>
-                    <div style={{
-                        fontSize: '1.25rem',
-                        fontWeight: 600,
-                        color: '#FF3B30',
-                        marginBottom: '0.5rem'
-                    }}>
-                        {error || 'Patient not found'}
-                    </div>
-                    <Link
-                        href="/dashboard/patients"
-                        style={{
-                            color: '#007AFF',
-                            textDecoration: 'none',
-                            fontSize: '0.875rem'
-                        }}
-                    >
-                        ← Back to Patient Dashboard
-                    </Link>
-                </div>
-            </div>
-        );
-    }
-
-    const { primaryDischarge, allDischarges, aggregatedAdherence, aggregatedSymptoms, timelineEvents } = patientData;
-
-    return (
-        <div style={{
-            fontFamily: 'Nunito, -apple-system, BlinkMacSystemFont, sans-serif',
-            backgroundColor: '#F2F2F7',
-            minHeight: '100vh'
-        }}>
-            {/* Header */}
-            <div style={{
-                backgroundColor: '#FFFFFF',
-                borderBottom: '1px solid #E5E5EA',
-                padding: '2rem 2.5rem'
-            }}>
-                <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '1rem',
-                    marginBottom: '1.5rem'
-                }}>
-                    <Link
-                        href="/dashboard/patients"
-                        style={{
-                            color: '#007AFF',
-                            textDecoration: 'none',
-                            fontSize: '0.875rem',
-                            fontWeight: 500
-                        }}
-                    >
-                        ← Patients
-                    </Link>
-                    <div style={{
-                        width: '1px',
-                        height: '16px',
-                        backgroundColor: '#D1D1D6'
-                    }} />
-                    <h1 style={{
-                        fontSize: '2rem',
-                        fontWeight: 700,
-                        color: '#1D1D1F',
-                        margin: 0
-                    }}>
-                        {primaryDischarge.pet.name}
-                    </h1>
-                </div>
-
-                {/* Patient Info Summary */}
-                <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                    gap: '1.5rem',
-                    marginBottom: '1.5rem'
-                }}>
-                    <div>
-                        <div style={{
-                            fontSize: '0.75rem',
-                            fontWeight: 600,
-                            color: '#8E8E93',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.075em',
-                            marginBottom: '0.25rem'
-                        }}>
-                            Pet Details
-                        </div>
-                        <div style={{
-                            fontSize: '0.875rem',
-                            color: '#1D1D1F',
-                            lineHeight: 1.4
-                        }}>
-                            {primaryDischarge.pet.species}
-                            {primaryDischarge.pet.weight && ` • ${primaryDischarge.pet.weight}`}
-                        </div>
-                    </div>
-
-                    <div>
-                        <div style={{
-                            fontSize: '0.75rem',
-                            fontWeight: 600,
-                            color: '#8E8E93',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.075em',
-                            marginBottom: '0.25rem'
-                        }}>
-                            Visit History
-                        </div>
-                        <div style={{
-                            fontSize: '0.875rem',
-                            color: '#1D1D1F',
-                            lineHeight: 1.4
-                        }}>
-                            {allDischarges.length} visit{allDischarges.length !== 1 ? 's' : ''}
-                            <br />
-                            Latest: {primaryDischarge.createdAt.toLocaleDateString()}
-                        </div>
-                    </div>
-
-                    <div>
-                        <div style={{
-                            fontSize: '0.75rem',
-                            fontWeight: 600,
-                            color: '#8E8E93',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.075em',
-                            marginBottom: '0.25rem'
-                        }}>
-                            Adherence Rate
-                        </div>
-                        <div style={{
-                            fontSize: '1.5rem',
-                            fontWeight: 700,
-                            color: aggregatedAdherence.overall.adherenceRate >= 85 ? '#34C759' :
-                                aggregatedAdherence.overall.adherenceRate >= 70 ? '#FF9500' : '#FF3B30'
-                        }}>
-                            {aggregatedAdherence.overall.adherenceRate}%
-                        </div>
-                        <div style={{
-                            fontSize: '0.75rem',
-                            color: '#8E8E93'
-                        }}>
-                            {aggregatedAdherence.overall.givenDoses}/{aggregatedAdherence.overall.totalDoses} doses given
-                        </div>
-                    </div>
-
-                    <div>
-                        <div style={{
-                            fontSize: '0.75rem',
-                            fontWeight: 600,
-                            color: '#8E8E93',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.075em',
-                            marginBottom: '0.25rem'
-                        }}>
-                            Current Status
-                        </div>
-                        <div style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.5rem'
-                        }}>
-                            <span style={{
-                                width: '8px',
-                                height: '8px',
-                                backgroundColor: patientData.isActive ? '#34C759' : '#8E8E93',
-                                borderRadius: '50%'
-                            }} />
-                            <span style={{
-                                fontSize: '0.875rem',
-                                fontWeight: 600,
-                                color: patientData.isActive ? '#34C759' : '#8E8E93'
-                            }}>
-                                {patientData.isActive ? 'Active' : 'Inactive'}
-                            </span>
-                        </div>
-                        {patientData.lastActivity && (
-                            <div style={{
-                                fontSize: '0.75rem',
-                                color: '#8E8E93',
-                                marginTop: '0.25rem'
-                            }}>
-                                Last dose: {patientData.lastActivity.toLocaleDateString()}
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* Multiple Visits Banner */}
-                {allDischarges.length > 1 && (
-                    <div style={{
-                        backgroundColor: '#E5F4FF',
-                        border: '1px solid #B3D9FF',
-                        borderRadius: '8px',
-                        padding: '1rem',
-                        marginBottom: '1.5rem'
-                    }}>
-                        <div style={{
-                            fontSize: '0.875rem',
-                            color: '#007AFF',
-                            fontWeight: 600,
-                            marginBottom: '0.25rem'
-                        }}>
-                            📊 Comprehensive Patient History
-                        </div>
-                        <div style={{
-                            fontSize: '0.75rem',
-                            color: '#007AFF',
-                            lineHeight: 1.4
-                        }}>
-                            This view shows aggregated data from all {allDischarges.length} visits for {primaryDischarge.pet.name}.
-                            Adherence rates, symptom trends, and timeline events include data from across all discharge summaries.
-                        </div>
-                    </div>
-                )}
-
-                {/* Tab Navigation */}
-                <div style={{
-                    display: 'flex',
-                    gap: '2rem',
-                    borderBottom: '2px solid #F2F2F7'
-                }}>
-                    {[
-                        { key: 'recent' as const, label: 'Recent Discharges', count: allDischarges.length },
-                        { key: 'medications' as const, label: 'Medications', count: aggregatedAdherence.perMedication.length },
-                        { key: 'symptoms' as const, label: 'Symptoms', count: aggregatedSymptoms.flags.length },
-                        { key: 'timeline' as const, label: 'Timeline', count: timelineEvents.length }
-                    ].map(tab => (
-                        <button
-                            key={tab.key}
-                            onClick={() => setActiveTab(tab.key)}
-                            style={{
-                                backgroundColor: 'transparent',
-                                border: 'none',
-                                padding: '1rem 0',
-                                fontSize: '0.875rem',
-                                fontWeight: 600,
-                                color: activeTab === tab.key ? '#007AFF' : '#8E8E93',
-                                borderBottom: activeTab === tab.key ? '2px solid #007AFF' : '2px solid transparent',
-                                cursor: 'pointer',
-                                transition: 'color 0.2s',
-                                fontFamily: 'inherit',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '0.5rem'
-                            }}
-                        >
-                            {tab.label}
-                            {tab.count > 0 && (
-                                <span style={{
-                                    backgroundColor: activeTab === tab.key ? '#007AFF' : '#D1D1D6',
-                                    color: activeTab === tab.key ? '#FFFFFF' : '#8E8E93',
-                                    fontSize: '0.75rem',
-                                    fontWeight: 600,
-                                    padding: '0.125rem 0.5rem',
-                                    borderRadius: '12px',
-                                    minWidth: '20px',
-                                    textAlign: 'center'
-                                }}>
-                                    {tab.count}
-                                </span>
-                            )}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            {/* Tab Content - Use existing components with correct props */}
-            <div style={{ padding: '2rem 2.5rem' }}>
-                {activeTab === 'recent' && (
-                    <RecentDischargesTab
-                        recentDischarges={allDischarges.map(discharge => ({
-                            id: discharge.id,
-                            pet: discharge.pet,
-                            createdAt: discharge.createdAt,
-                            adherenceRate: 0, // Will be calculated by component
-                            symptomFlagCount: 0, // Will be calculated by component
-                            isActive: discharge.id === primaryDischarge.id
-                        }))}
-                        petName={primaryDischarge.pet.name}
-                        clinicId={clinic.id}
-                    />
-                )}
-
-                {activeTab === 'medications' && (
-                    <MedicationsTab
-                        adherenceMetrics={aggregatedAdherence}
-                        recentDischarges={allDischarges.map(discharge => ({
-                            id: discharge.id,
-                            pet: discharge.pet,
-                            createdAt: discharge.createdAt,
-                            adherenceRate: 0, // Will be calculated by component
-                            symptomFlagCount: 0, // Will be calculated by component  
-                            isActive: discharge.id === primaryDischarge.id
-                        }))}
-                        petName={primaryDischarge.pet.name}
-                    />
-                )}
-
-                {activeTab === 'symptoms' && (
-                    <SymptomsTab
-                        symptomAnalysis={aggregatedSymptoms}
-                        recentDischarges={allDischarges.map(discharge => ({
-                            id: discharge.id,
-                            pet: discharge.pet,
-                            createdAt: discharge.createdAt,
-                            adherenceRate: 0, // Will be calculated by component
-                            symptomFlagCount: 0, // Will be calculated by component
-                            isActive: discharge.id === primaryDischarge.id
-                        }))}
-                        petName={primaryDischarge.pet.name}
-                    />
-                )}
-
-                {activeTab === 'timeline' && (
-                    <TimelineTab
-                        timelineEvents={timelineEvents.map(event => ({
-                            ...event,
-                            sortTime: new Date(event.date + (event.time ? ` ${event.time}` : ''))
-                        }))}
-                        recentDischarges={allDischarges.map(discharge => ({
-                            id: discharge.id,
-                            pet: discharge.pet,
-                            createdAt: discharge.createdAt,
-                            adherenceRate: 0, // Will be calculated by component
-                            symptomFlagCount: 0, // Will be calculated by component
-                            isActive: discharge.id === primaryDischarge.id
-                        }))}
-                        petName={primaryDischarge.pet.name}
-                    />
-                )}
-            </div>
-
-            {/* CSS for spinner animation */}
-            <style jsx>{`
-                @keyframes spin {
-                    0% { transform: rotate(0deg); }
-                    100% { transform: rotate(360deg); }
-                }
-            `}</style>
-        </div>
-    );
-}
-
-// Enhanced types for aggregated data
-interface AggregatedPatientData {
-    primaryDischarge: Discharge; // The discharge we're viewing
-    allDischarges: Discharge[]; // All discharges for this pet
-    aggregatedAdherence: {
-        overall: {
-            totalDoses: number;
-            givenDoses: number;
-            lateDoses: number;
-            missedDoses: number;
-            adherenceRate: number;
-        };
-        perMedication: Array<{
-            medicationName: string;
-            totalDoses: number;
-            onTimeDoses: number;
-            lateDoses: number;
-            missedDoses: number;
-            adherenceRate: number;
-        }>;
-        timeline: Array<{
-            date: string;
-            scheduledDoses: number;
-            givenDoses: number;
-            missedDoses: number;
-            adherenceRate: number;
-        }>;
-    };
-    aggregatedSymptoms: ExtendedSymptomAnalysis;
-    timelineEvents: TimelineEvent[];
-    lastActivity?: Date;
-    isActive: boolean;
-}
-
-interface TimelineEvent {
-    id: string;
-    type: 'dose' | 'symptom_flag' | 'new_discharge';
-    date: string;
-    time?: string;
-    title: string;
-    description: string;
-    severity?: 'low' | 'medium' | 'high';
-    delay?: number;
-    medicationName?: string;
-    dischargeId?: string;
-}
-
-// Remove unused helper function
-// const isSamePet = (pet1: { name: string; species: string }, pet2: { name: string; species: string }): boolean => {
-//     return pet1.name.toLowerCase() === pet2.name.toLowerCase() && 
-//            pet1.species.toLowerCase() === pet2.species.toLowerCase();
-// };
-
-export default function PatientDetailPage() {
-    const { id } = useParams();
-    const { vetUser, clinic } = useAuth();
-    const { loading: authLoading } = useRequireAuth();
-
-    // Core state for aggregated data
-    const [patientData, setPatientData] = useState<AggregatedPatientData | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
-    const [activeTab, setActiveTab] = useState<'recent' | 'medications' | 'symptoms' | 'timeline'>('recent');
-
-    // Load complete patient data across all discharges
+    // Load detailed data for tabs
     useEffect(() => {
-        const loadPatientData = async () => {
-            if (!id || !vetUser || !clinic) return;
+        const loadDetailedData = async () => {
+            if (!discharge || !clinic) return;
 
             try {
-                setLoading(true);
-                setError('');
+                setDataLoading(true);
+                console.log('Loading detailed data for tabs...');
 
-                // First, get the primary discharge we're viewing
-                const primaryDischargeDoc = await getDoc(doc(db, COLLECTIONS.DISCHARGES, id as string));
-
-                if (!primaryDischargeDoc.exists()) {
-                    setError('Patient record not found');
-                    return;
-                }
-
-                const primaryDischargeData = primaryDischargeDoc.data();
-                const primaryDischarge = {
-                    id: primaryDischargeDoc.id,
-                    ...primaryDischargeData,
-                    createdAt: primaryDischargeData.createdAt?.toDate() || new Date(),
-                    updatedAt: primaryDischargeData.updatedAt?.toDate() || new Date()
-                } as Discharge;
-
-                console.log(`Loading complete data for pet: ${primaryDischarge.pet.name} (${primaryDischarge.pet.species})`);
-
-                // Get ALL discharges for this pet across all visits
-                const allDischarges = await getAllDischargesForPet(
-                    primaryDischarge.pet.name,
+                // Load adherence metrics (30 days)
+                const adherenceData = await calculateAdherenceMetrics(
+                    discharge.id,
                     clinic.id,
-                    primaryDischarge.pet.species
+                    30
                 );
+                setAdherenceMetrics(adherenceData);
+                console.log('Adherence metrics loaded:', adherenceData);
 
-                console.log(`Found ${allDischarges.length} total discharges for this pet`);
-
-                // Get aggregated adherence data across ALL discharges
-                const adherenceData = await getAllAdherenceForPet(
-                    primaryDischarge.pet.name,
+                // Load symptom analysis (30 days)
+                const symptomData = await analyzeSymptoms(
+                    discharge.id,
                     clinic.id,
-                    primaryDischarge.pet.species,
-                    120 // Last 120 days for detailed view
+                    30
                 );
+                setSymptomAnalysis(symptomData);
+                console.log('Symptom analysis loaded:', symptomData);
 
-                // Get aggregated symptom data across ALL discharges
-                const symptomData = await getAllSymptomLogsForPet(
-                    primaryDischarge.pet.name,
-                    clinic.id,
-                    primaryDischarge.pet.species,
-                    120 // Last 120 days for detailed view
-                );
+                // Load recent adherence records for timeline (60 days, limit 100)
+                const recentRecords = await getRecentAdherenceRecords(discharge.id, 100);
+                console.log('Recent adherence records loaded:', recentRecords.length);
 
-                // Build comprehensive timeline from all sources
-                const timelineEvents = await buildComprehensiveTimeline(
-                    allDischarges,
-                    adherenceData.allRecords,
-                    symptomData.aggregatedAnalysis
-                );
-
-                // Assemble complete patient data
-                const aggregatedData: AggregatedPatientData = {
-                    primaryDischarge,
-                    allDischarges,
-                    aggregatedAdherence: adherenceData.aggregatedMetrics,
-                    aggregatedSymptoms: symptomData.aggregatedAnalysis,
-                    timelineEvents,
-                    lastActivity: adherenceData.lastActivity,
-                    isActive: adherenceData.isActive
-                };
-
-                setPatientData(aggregatedData);
+                // Create timeline events
+                const timeline = createTimelineEvents(recentRecords, symptomData);
+                setTimelineEvents(timeline);
+                console.log('Timeline events created:', timeline.length);
 
             } catch (err) {
-                console.error('Error loading patient data:', err);
-                setError('Failed to load patient data');
+                console.error('Error loading detailed data:', err);
+                // Don't set error - we can still show the basic data
             } finally {
-                setLoading(false);
+                setDataLoading(false);
             }
         };
 
-        loadPatientData();
-    }, [id, vetUser, clinic]);
+        if (discharge && !loading) {
+            loadDetailedData();
+        }
+    }, [discharge, clinic, loading]);
 
-    // Build comprehensive timeline from all data sources
-    const buildComprehensiveTimeline = async (
-        allDischarges: Discharge[],
-        adherenceRecords: any[],
-        symptomLogs: any[]
-    ): Promise<TimelineEvent[]> => {
-        const events: TimelineEvent[] = [];
+    // Utility functions
+    const getAdherenceColor = (rate: number): string => {
+        if (rate >= 85) return '#34C759'; // Success Green
+        if (rate >= 70) return '#FF9500'; // Warning Orange
+        return '#ef4444'; // Error Red
+    };
 
-        // Add discharge events
-        allDischarges.forEach(discharge => {
-            events.push({
-                id: `discharge-${discharge.id}`,
-                type: 'new_discharge',
-                date: discharge.createdAt.toISOString().split('T')[0],
-                time: discharge.createdAt.toLocaleTimeString('en-US', {
-                    hour: '2-digit',
-                    minute: '2-digit'
-                }),
-                title: 'New Discharge Summary',
-                description: `${discharge.medications.length} medications prescribed`,
-                dischargeId: discharge.id
-            });
-        });
+    const getStatusColor = (status: 'active' | 'inactive'): string => {
+        return status === 'active' ? '#34C759' : '#6D6D72';
+    };
 
-        // Add dose events from adherence records
-        adherenceRecords.forEach(record => {
-            const scheduledTime = record.scheduledTime.toDate();
-            const delay = record.givenAt && record.status === 'given'
-                ? Math.round((record.givenAt.toDate().getTime() - scheduledTime.getTime()) / (1000 * 60))
-                : undefined;
+    const formatTimeAgo = (date: Date): string => {
+        const now = new Date();
+        const diffMs = now.getTime() - date.getTime();
+        const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+        const diffDays = Math.floor(diffHours / 24);
 
-            events.push({
-                id: `dose-${record.id}`,
-                type: 'dose',
-                date: scheduledTime.toISOString().split('T')[0],
-                time: scheduledTime.toLocaleTimeString('en-US', {
-                    hour: '2-digit',
-                    minute: '2-digit'
-                }),
-                title: record.status === 'given' ? 'Dose Given' : 'Dose Missed',
-                description: `${record.medicationName} - ${record.dosage}`,
-                severity: record.status === 'missed' ? 'medium' :
-                    (delay && delay > 120) ? 'low' : undefined,
-                delay,
-                medicationName: record.medicationName,
-                dischargeId: record.dischargeId
-            });
-        });
+        if (diffHours < 1) return 'Less than 1 hour ago';
+        if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+        if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
 
-        // Add symptom flag events
-        symptomData.aggregatedAnalysis.flags.forEach(flag => {
-            events.push({
-                id: `symptom-${flag.date}-${flag.type}`,
-                type: 'symptom_flag',
-                date: flag.date,
-                title: 'Symptom Alert',
-                description: flag.description,
-                severity: flag.severity
-            });
-        });
-
-        // Sort by date and time, most recent first
-        return events.sort((a, b) => {
-            const dateCompare = b.date.localeCompare(a.date);
-            if (dateCompare !== 0) return dateCompare;
-
-            if (a.time && b.time) {
-                return b.time.localeCompare(a.time);
-            }
-            return 0;
+        return date.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
         });
     };
 
-    // Loading and error states
+    const formatDate = (date: Date): string => {
+        return date.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+        });
+    };
+
+    // Create fallback empty data for tabs when loading
+    const getEmptyAdherenceMetrics = (): AdherenceMetrics => ({
+        overall: { totalDoses: 0, givenDoses: 0, lateDoses: 0, missedDoses: 0, adherenceRate: 0 },
+        perMedication: [],
+        timeline: []
+    });
+
+    const getEmptySymptomAnalysis = (): SymptomAnalysis => ({
+        flags: [],
+        recentEntries: [],
+        trends: {
+            appetite: { current: 0, sevenDayAverage: 0, trend: 'stable' },
+            energy: { current: 0, sevenDayAverage: 0, trend: 'stable' },
+            panting: { recentDays: 0, isFrequent: false }
+        }
+    });
+
     if (authLoading || loading) {
         return (
             <div style={{
+                minHeight: '100vh',
                 display: 'flex',
-                justifyContent: 'center',
                 alignItems: 'center',
-                minHeight: '400px',
-                fontFamily: 'Nunito, -apple-system, BlinkMacSystemFont, sans-serif'
-            }}>
-                <div style={{ textAlign: 'center' }}>
-                    <div style={{
-                        fontSize: '1.125rem',
-                        color: '#6D6D72',
-                        marginBottom: '0.5rem'
-                    }}>
-                        Loading patient details...
-                    </div>
-                    <div style={{
-                        width: '32px',
-                        height: '32px',
-                        border: '3px solid #F2F2F7',
-                        borderTop: '3px solid #007AFF',
-                        borderRadius: '50%',
-                        animation: 'spin 1s linear infinite',
-                        margin: '0 auto'
-                    }} />
-                </div>
-            </div>
-        );
-    }
-
-    if (error || !patientData) {
-        return (
-            <div style={{
-                display: 'flex',
                 justifyContent: 'center',
-                alignItems: 'center',
-                minHeight: '400px',
+                backgroundColor: '#f8fafc',
                 fontFamily: 'Nunito, -apple-system, BlinkMacSystemFont, sans-serif'
             }}>
                 <div style={{
                     textAlign: 'center',
-                    backgroundColor: '#FFFFFF',
-                    padding: '2rem',
-                    borderRadius: '12px',
-                    border: '1px solid #E5E5EA'
+                    color: '#64748b'
                 }}>
                     <div style={{
-                        fontSize: '1.25rem',
-                        fontWeight: 600,
-                        color: '#FF3B30',
+                        width: '40px',
+                        height: '40px',
+                        border: '4px solid #e2e8f0',
+                        borderTop: '4px solid #007AFF',
+                        borderRadius: '50%',
+                        animation: 'spin 1s linear infinite',
+                        margin: '0 auto 1rem auto'
+                    }} />
+                    Loading patient details...
+                </div>
+            </div>
+        );
+    }
+
+    if (error || !discharge || !quickGlanceMetrics) {
+        return (
+            <div style={{
+                minHeight: '100vh',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: '#f8fafc',
+                fontFamily: 'Nunito, -apple-system, BlinkMacSystemFont, sans-serif',
+                padding: '1rem'
+            }}>
+                <div style={{ textAlign: 'center', maxWidth: '400px', width: '100%' }}>
+                    <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🐾</div>
+                    <h1 style={{
+                        fontSize: '1.5rem',
+                        fontWeight: '600',
+                        color: '#dc2626',
                         marginBottom: '0.5rem'
                     }}>
-                        {error || 'Patient not found'}
-                    </div>
+                        Patient Not Found
+                    </h1>
+                    <p style={{
+                        color: '#64748b',
+                        marginBottom: '2rem',
+                        lineHeight: '1.5'
+                    }}>
+                        {error || 'This patient may have been removed or you may not have access to view their records.'}
+                    </p>
                     <Link
                         href="/dashboard/patients"
                         style={{
-                            color: '#007AFF',
+                            backgroundColor: '#007AFF',
+                            color: 'white',
+                            padding: '0.75rem 1.5rem',
+                            borderRadius: '8px',
                             textDecoration: 'none',
-                            fontSize: '0.875rem'
+                            fontWeight: '600',
+                            display: 'inline-block'
                         }}
                     >
-                        ← Back to Patient Dashboard
+                        Back to Patients
                     </Link>
                 </div>
             </div>
         );
     }
 
-    const { primaryDischarge, allDischarges, aggregatedAdherence, aggregatedSymptoms, timelineEvents } = patientData;
-
     return (
         <div style={{
-            fontFamily: 'Nunito, -apple-system, BlinkMacSystemFont, sans-serif',
-            backgroundColor: '#F2F2F7',
-            minHeight: '100vh'
+            minHeight: '100vh',
+            backgroundColor: '#f8fafc',
+            fontFamily: 'Nunito, -apple-system, BlinkMacSystemFont, sans-serif'
         }}>
-            {/* Header */}
+            {/* Navigation Component */}
+            <Navigation activeRoute="/dashboard/patients" />
+
+            {/* Breadcrumb Navigation */}
             <div style={{
-                backgroundColor: '#FFFFFF',
-                borderBottom: '1px solid #E5E5EA',
-                padding: '2rem 2.5rem'
+                backgroundColor: 'white',
+                borderBottom: '1px solid #e2e8f0',
+                padding: isMobile ? '0.75rem 1rem' : '1rem 2rem'
             }}>
                 <div style={{
+                    maxWidth: '1200px',
+                    margin: '0 auto',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '1rem',
-                    marginBottom: '1.5rem'
+                    gap: '0.5rem',
+                    fontSize: '0.875rem',
+                    color: '#64748b'
                 }}>
                     <Link
                         href="/dashboard/patients"
                         style={{
-                            color: '#007AFF',
+                            color: '#64748b',
                             textDecoration: 'none',
-                            fontSize: '0.875rem',
-                            fontWeight: 500
+                            fontWeight: '500',
+                            transition: 'color 0.2s ease'
                         }}
+                        onMouseEnter={(e) => e.currentTarget.style.color = '#007AFF'}
+                        onMouseLeave={(e) => e.currentTarget.style.color = '#64748b'}
                     >
-                        ← Patients
+                        Patients
                     </Link>
-                    <div style={{
-                        width: '1px',
-                        height: '16px',
-                        backgroundColor: '#D1D1D6'
-                    }} />
-                    <h1 style={{
-                        fontSize: '2rem',
-                        fontWeight: 700,
-                        color: '#1D1D1F',
-                        margin: 0
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="9,18 15,12 9,6" />
+                    </svg>
+                    <span style={{
+                        color: '#007AFF',
+                        fontWeight: '600'
                     }}>
-                        {primaryDischarge.pet.name}
-                    </h1>
+                        {quickGlanceMetrics.petName}
+                    </span>
                 </div>
+            </div>
 
-                {/* Patient Info Summary */}
+            {/* Main Content */}
+            <main style={{
+                maxWidth: '1200px',
+                margin: '0 auto',
+                padding: isMobile ? '1rem' : '2rem'
+            }}>
+                {/* Patient Header */}
                 <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                    gap: '1.5rem',
-                    marginBottom: '1.5rem'
+                    backgroundColor: 'white',
+                    borderRadius: '12px',
+                    padding: isMobile ? '1.5rem' : '2rem',
+                    marginBottom: '2rem',
+                    border: '1px solid #e2e8f0'
                 }}>
-                    <div>
-                        <div style={{
-                            fontSize: '0.75rem',
-                            fontWeight: 600,
-                            color: '#8E8E93',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.075em',
-                            marginBottom: '0.25rem'
-                        }}>
-                            Pet Details
+                    <div style={{
+                        display: 'flex',
+                        flexDirection: isMobile ? 'column' : 'row',
+                        justifyContent: 'space-between',
+                        alignItems: isMobile ? 'flex-start' : 'center',
+                        gap: isMobile ? '1rem' : '0'
+                    }}>
+                        <div>
+                            <h1 style={{
+                                fontSize: isMobile ? '1.75rem' : '2.25rem',
+                                fontWeight: '700',
+                                color: '#1e293b',
+                                margin: '0 0 0.5rem 0'
+                            }}>
+                                {quickGlanceMetrics.petName}
+                            </h1>
+                            <p style={{
+                                fontSize: isMobile ? '1rem' : '1.125rem',
+                                color: '#64748b',
+                                margin: '0 0 0.25rem 0'
+                            }}>
+                                {quickGlanceMetrics.petSpecies}
+                                {quickGlanceMetrics.petWeight && (
+                                    <span>
+                                        {' • '}
+                                        {quickGlanceMetrics.petWeight.includes('lb') || quickGlanceMetrics.petWeight.includes('kg')
+                                            ? quickGlanceMetrics.petWeight
+                                            : `${quickGlanceMetrics.petWeight} lbs`
+                                        }
+                                    </span>
+                                )}
+                            </p>
+                            <p style={{
+                                fontSize: '0.875rem',
+                                color: '#9ca3af',
+                                margin: 0
+                            }}>
+                                {quickGlanceMetrics.totalVisits} visit{quickGlanceMetrics.totalVisits !== 1 ? 's' : ''} • Last visit: {formatDate(quickGlanceMetrics.lastVisitDate)}
+                            </p>
                         </div>
-                        <div style={{
-                            fontSize: '0.875rem',
-                            color: '#1D1D1F',
-                            lineHeight: 1.4
-                        }}>
-                            {primaryDischarge.pet.species}
-                            {primaryDischarge.pet.weight && ` • ${primaryDischarge.pet.weight}`}
-                        </div>
-                    </div>
 
-                    <div>
-                        <div style={{
-                            fontSize: '0.75rem',
-                            fontWeight: 600,
-                            color: '#8E8E93',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.075em',
-                            marginBottom: '0.25rem'
-                        }}>
-                            Visit History
-                        </div>
-                        <div style={{
-                            fontSize: '0.875rem',
-                            color: '#1D1D1F',
-                            lineHeight: 1.4
-                        }}>
-                            {allDischarges.length} visit{allDischarges.length !== 1 ? 's' : ''}
-                            <br />
-                            Latest: {primaryDischarge.createdAt.toLocaleDateString()}
-                        </div>
-                    </div>
-
-                    <div>
-                        <div style={{
-                            fontSize: '0.75rem',
-                            fontWeight: 600,
-                            color: '#8E8E93',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.075em',
-                            marginBottom: '0.25rem'
-                        }}>
-                            Adherence Rate
-                        </div>
-                        <div style={{
-                            fontSize: '1.5rem',
-                            fontWeight: 700,
-                            color: aggregatedAdherence.overall.adherenceRate >= 85 ? '#34C759' :
-                                aggregatedAdherence.overall.adherenceRate >= 70 ? '#FF9500' : '#FF3B30'
-                        }}>
-                            {aggregatedAdherence.overall.adherenceRate}%
-                        </div>
-                        <div style={{
-                            fontSize: '0.75rem',
-                            color: '#8E8E93'
-                        }}>
-                            {aggregatedAdherence.overall.givenDoses}/{aggregatedAdherence.overall.totalDoses} doses given
-                        </div>
-                    </div>
-
-                    <div>
-                        <div style={{
-                            fontSize: '0.75rem',
-                            fontWeight: 600,
-                            color: '#8E8E93',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.075em',
-                            marginBottom: '0.25rem'
-                        }}>
-                            Current Status
-                        </div>
                         <div style={{
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '0.5rem'
+                            gap: '1rem'
                         }}>
-                            <span style={{
-                                width: '8px',
-                                height: '8px',
-                                backgroundColor: patientData.isActive ? '#34C759' : '#8E8E93',
-                                borderRadius: '50%'
-                            }} />
-                            <span style={{
-                                fontSize: '0.875rem',
-                                fontWeight: 600,
-                                color: patientData.isActive ? '#34C759' : '#8E8E93'
-                            }}>
-                                {patientData.isActive ? 'Active' : 'Inactive'}
-                            </span>
-                        </div>
-                        {patientData.lastActivity && (
                             <div style={{
-                                fontSize: '0.75rem',
-                                color: '#8E8E93',
-                                marginTop: '0.25rem'
+                                backgroundColor: quickGlanceMetrics.currentStatus === 'active' ? '#dcfce7' : '#f1f5f9',
+                                color: getStatusColor(quickGlanceMetrics.currentStatus),
+                                padding: '0.5rem 1rem',
+                                borderRadius: '8px',
+                                fontSize: '0.875rem',
+                                fontWeight: '600',
+                                textTransform: 'capitalize'
                             }}>
-                                Last dose: {patientData.lastActivity.toLocaleDateString()}
+                                {quickGlanceMetrics.currentStatus}
                             </div>
-                        )}
+                        </div>
                     </div>
                 </div>
 
-                {/* Multiple Visits Banner */}
-                {allDischarges.length > 1 && (
-                    <div style={{
-                        backgroundColor: '#E5F4FF',
-                        border: '1px solid #B3D9FF',
-                        borderRadius: '8px',
-                        padding: '1rem',
+                {/* Quick Glance Metrics Grid */}
+                <div style={{
+                    backgroundColor: 'white',
+                    borderRadius: '12px',
+                    padding: isMobile ? '1.5rem' : '2rem',
+                    marginBottom: '2rem',
+                    border: '1px solid #e2e8f0'
+                }}>
+                    <h2 style={{
+                        fontSize: '1.25rem',
+                        fontWeight: '600',
+                        color: '#1e293b',
                         marginBottom: '1.5rem'
                     }}>
+                        Quick Glance Metrics
+                    </h2>
+
+                    <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(250px, 1fr))',
+                        gap: '1.5rem'
+                    }}>
+                        {/* Overall Adherence */}
                         <div style={{
-                            fontSize: '0.875rem',
-                            color: '#007AFF',
-                            fontWeight: 600,
-                            marginBottom: '0.25rem'
+                            backgroundColor: '#f8fafc',
+                            borderRadius: '10px',
+                            padding: '1.25rem',
+                            border: '1px solid #f1f5f9'
                         }}>
-                            📊 Comprehensive Patient History
+                            <h3 style={{
+                                fontSize: '0.875rem',
+                                fontWeight: '600',
+                                color: '#6b7280',
+                                marginBottom: '0.5rem',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.05em'
+                            }}>
+                                Overall Adherence
+                            </h3>
+                            <div style={{
+                                fontSize: '2rem',
+                                fontWeight: '700',
+                                color: getAdherenceColor(quickGlanceMetrics.overallAdherenceRate),
+                                marginBottom: '0.25rem'
+                            }}>
+                                {quickGlanceMetrics.overallAdherenceRate}%
+                            </div>
+                            <p style={{
+                                fontSize: '0.75rem',
+                                color: '#9ca3af',
+                                margin: 0
+                            }}>
+                                All medications, all visits
+                            </p>
                         </div>
+
+                        {/* Active Meds Adherence */}
                         <div style={{
-                            fontSize: '0.75rem',
-                            color: '#007AFF',
-                            lineHeight: 1.4
+                            backgroundColor: '#f8fafc',
+                            borderRadius: '10px',
+                            padding: '1.25rem',
+                            border: '1px solid #f1f5f9'
                         }}>
-                            This view shows aggregated data from all {allDischarges.length} visits for {primaryDischarge.pet.name}.
-                            Adherence rates, symptom trends, and timeline events include data from across all discharge summaries.
+                            <h3 style={{
+                                fontSize: '0.875rem',
+                                fontWeight: '600',
+                                color: '#6b7280',
+                                marginBottom: '0.5rem',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.05em'
+                            }}>
+                                Active Meds Adherence
+                            </h3>
+                            <div style={{
+                                fontSize: '2rem',
+                                fontWeight: '700',
+                                color: getAdherenceColor(quickGlanceMetrics.activeOnlyAdherenceRate),
+                                marginBottom: '0.25rem'
+                            }}>
+                                {quickGlanceMetrics.activeOnlyAdherenceRate}%
+                            </div>
+                            <p style={{
+                                fontSize: '0.75rem',
+                                color: '#9ca3af',
+                                margin: 0
+                            }}>
+                                Current medications only
+                            </p>
+                        </div>
+
+                        {/* Medications Count */}
+                        <div style={{
+                            backgroundColor: '#f8fafc',
+                            borderRadius: '10px',
+                            padding: '1.25rem',
+                            border: '1px solid #f1f5f9'
+                        }}>
+                            <h3 style={{
+                                fontSize: '0.875rem',
+                                fontWeight: '600',
+                                color: '#6b7280',
+                                marginBottom: '0.5rem',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.05em'
+                            }}>
+                                Medications
+                            </h3>
+                            <div style={{
+                                fontSize: '2rem',
+                                fontWeight: '700',
+                                color: '#1e293b',
+                                marginBottom: '0.25rem'
+                            }}>
+                                {quickGlanceMetrics.activeMedsCount}
+                            </div>
+                            <p style={{
+                                fontSize: '0.75rem',
+                                color: '#9ca3af',
+                                margin: 0
+                            }}>
+                                {quickGlanceMetrics.archivedMedsCount} completed
+                            </p>
+                        </div>
+
+                        {/* Recent Issues */}
+                        <div style={{
+                            backgroundColor: '#f8fafc',
+                            borderRadius: '10px',
+                            padding: '1.25rem',
+                            border: '1px solid #f1f5f9'
+                        }}>
+                            <h3 style={{
+                                fontSize: '0.875rem',
+                                fontWeight: '600',
+                                color: '#6b7280',
+                                marginBottom: '0.5rem',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.05em'
+                            }}>
+                                Recent Issues
+                            </h3>
+                            <div style={{
+                                fontSize: '2rem',
+                                fontWeight: '700',
+                                color: quickGlanceMetrics.missedDoseCount > 0 ? '#ef4444' : '#34C759',
+                                marginBottom: '0.25rem'
+                            }}>
+                                {quickGlanceMetrics.missedDoseCount}
+                            </div>
+                            <p style={{
+                                fontSize: '0.75rem',
+                                color: '#9ca3af',
+                                margin: 0
+                            }}>
+                                missed doses (30d)
+                            </p>
+                        </div>
+
+                        {/* Last Dose */}
+                        <div style={{
+                            backgroundColor: '#f8fafc',
+                            borderRadius: '10px',
+                            padding: '1.25rem',
+                            border: '1px solid #f1f5f9'
+                        }}>
+                            <h3 style={{
+                                fontSize: '0.875rem',
+                                fontWeight: '600',
+                                color: '#6b7280',
+                                marginBottom: '0.5rem',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.05em'
+                            }}>
+                                Last Dose
+                            </h3>
+                            <div style={{
+                                fontSize: quickGlanceMetrics.lastDoseGivenDate ? '1.25rem' : '2rem',
+                                fontWeight: '700',
+                                color: quickGlanceMetrics.lastDoseGivenDate ? '#1e293b' : '#9ca3af',
+                                marginBottom: '0.25rem'
+                            }}>
+                                {quickGlanceMetrics.lastDoseGivenDate
+                                    ? formatTimeAgo(quickGlanceMetrics.lastDoseGivenDate)
+                                    : 'No doses logged'
+                                }
+                            </div>
+                            <p style={{
+                                fontSize: '0.75rem',
+                                color: '#9ca3af',
+                                margin: 0
+                            }}>
+                                Any medication
+                            </p>
+                        </div>
+
+                        {/* Symptom Alerts */}
+                        <div style={{
+                            backgroundColor: '#f8fafc',
+                            borderRadius: '10px',
+                            padding: '1.25rem',
+                            border: '1px solid #f1f5f9'
+                        }}>
+                            <h3 style={{
+                                fontSize: '0.875rem',
+                                fontWeight: '600',
+                                color: '#6b7280',
+                                marginBottom: '0.5rem',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.05em'
+                            }}>
+                                Symptom Alerts
+                            </h3>
+                            <div style={{
+                                fontSize: '2rem',
+                                fontWeight: '700',
+                                color: quickGlanceMetrics.recentSymptomAlerts > 0 ? '#FF9500' : '#34C759',
+                                marginBottom: '0.25rem'
+                            }}>
+                                {quickGlanceMetrics.recentSymptomAlerts}
+                            </div>
+                            <p style={{
+                                fontSize: '0.75rem',
+                                color: '#9ca3af',
+                                margin: 0
+                            }}>
+                                Last 14 days
+                            </p>
                         </div>
                     </div>
-                )}
+                </div>
 
                 {/* Tab Navigation */}
                 <div style={{
-                    display: 'flex',
-                    gap: '2rem',
-                    borderBottom: '2px solid #F2F2F7'
+                    backgroundColor: 'white',
+                    borderRadius: '12px',
+                    border: '1px solid #e2e8f0',
+                    overflow: 'hidden'
                 }}>
-                    {[
-                        { key: 'recent' as const, label: 'Recent Discharges', count: allDischarges.length },
-                        { key: 'medications' as const, label: 'Medications', count: aggregatedAdherence.perMedication.length },
-                        { key: 'symptoms' as const, label: 'Symptoms', count: aggregatedSymptoms.flags.length },
-                        { key: 'timeline' as const, label: 'Timeline', count: timelineEvents.length }
-                    ].map(tab => (
-                        <button
-                            key={tab.key}
-                            onClick={() => setActiveTab(tab.key)}
-                            style={{
-                                backgroundColor: 'transparent',
-                                border: 'none',
-                                padding: '1rem 0',
-                                fontSize: '0.875rem',
-                                fontWeight: 600,
-                                color: activeTab === tab.key ? '#007AFF' : '#8E8E93',
-                                borderBottom: activeTab === tab.key ? '2px solid #007AFF' : '2px solid transparent',
-                                cursor: 'pointer',
-                                transition: 'color 0.2s',
-                                fontFamily: 'inherit',
+                    {/* Tab Headers */}
+                    <div style={{
+                        display: 'flex',
+                        borderBottom: '1px solid #f1f5f9',
+                        backgroundColor: '#f8fafc'
+                    }}>
+                        {[
+                            { id: 'recent', label: 'Recent Discharges', icon: '📋' },
+                            { id: 'medications', label: 'Medications', icon: '💊' },
+                            { id: 'symptoms', label: 'Symptoms', icon: '📊' },
+                            { id: 'timeline', label: 'Timeline', icon: '📅' }
+                        ].map((tab) => (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id as 'recent' | 'medications' | 'symptoms' | 'timeline')}
+                                style={{
+                                    flex: 1,
+                                    padding: isMobile ? '0.75rem 0.5rem' : '1rem 1.5rem',
+                                    border: 'none',
+                                    backgroundColor: activeTab === tab.id ? 'white' : 'transparent',
+                                    color: activeTab === tab.id ? '#007AFF' : '#6b7280',
+                                    fontWeight: activeTab === tab.id ? '600' : '500',
+                                    fontSize: isMobile ? '0.75rem' : '0.875rem',
+                                    borderBottom: activeTab === tab.id ? '2px solid #007AFF' : '2px solid transparent',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s ease',
+                                    fontFamily: 'inherit',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '0.5rem'
+                                }}
+                            >
+                                <span>{tab.icon}</span>
+                                <span style={{ display: isMobile ? 'none' : 'block' }}>
+                                    {tab.label}
+                                </span>
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Tab Content */}
+                    <div style={{ minHeight: '400px', position: 'relative' }}>
+                        {/* Loading overlay for tab data */}
+                        {dataLoading && (
+                            <div style={{
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                bottom: 0,
+                                backgroundColor: 'rgba(255, 255, 255, 0.8)',
                                 display: 'flex',
                                 alignItems: 'center',
-                                gap: '0.5rem'
-                            }}
-                        >
-                            {tab.label}
-                            {tab.count > 0 && (
-                                <span style={{
-                                    backgroundColor: activeTab === tab.key ? '#007AFF' : '#D1D1D6',
-                                    color: activeTab === tab.key ? '#FFFFFF' : '#8E8E93',
-                                    fontSize: '0.75rem',
-                                    fontWeight: 600,
-                                    padding: '0.125rem 0.5rem',
-                                    borderRadius: '12px',
-                                    minWidth: '20px',
-                                    textAlign: 'center'
+                                justifyContent: 'center',
+                                zIndex: 10
+                            }}>
+                                <div style={{
+                                    textAlign: 'center',
+                                    color: '#64748b'
                                 }}>
-                                    {tab.count}
-                                </span>
-                            )}
-                        </button>
-                    ))}
+                                    <div style={{
+                                        width: '32px',
+                                        height: '32px',
+                                        border: '3px solid #e2e8f0',
+                                        borderTop: '3px solid #007AFF',
+                                        borderRadius: '50%',
+                                        animation: 'spin 1s linear infinite',
+                                        margin: '0 auto 0.75rem auto'
+                                    }} />
+                                    Loading {activeTab} data...
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'recent' && (
+                            <RecentDischargesTab
+                                recentDischarges={recentDischarges}
+                                petName={discharge.pet.name}
+                                clinicId={clinic?.id || ''}
+                            />
+                        )}
+
+                        {activeTab === 'medications' && (
+                            <MedicationsTab
+                                adherenceMetrics={adherenceMetrics || getEmptyAdherenceMetrics()}
+                                recentDischarges={recentDischarges}
+                                petName={discharge.pet.name}
+                            />
+                        )}
+
+                        {activeTab === 'symptoms' && (
+                            <SymptomsTab
+                                symptomAnalysis={symptomAnalysis || getEmptySymptomAnalysis()}
+                                recentDischarges={recentDischarges}
+                                petName={discharge.pet.name}
+                            />
+                        )}
+
+                        {activeTab === 'timeline' && (
+                            <TimelineTab
+                                timelineEvents={timelineEvents}
+                                recentDischarges={recentDischarges}
+                                petName={discharge.pet.name}
+                            />
+                        )}
+                    </div>
                 </div>
-            </div>
 
-            {/* Tab Content */}
-            <div style={{ padding: '2rem 2.5rem' }}>
-                {activeTab === 'recent' && (
-                    <div>
-                        <h3 style={{
-                            fontSize: '1.25rem',
-                            fontWeight: 600,
-                            marginBottom: '1rem',
-                            color: '#1D1D1F'
-                        }}>
-                            Recent Discharges ({allDischarges.length})
-                        </h3>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                            {allDischarges.map((discharge, index) => (
-                                <div key={discharge.id} style={{
-                                    backgroundColor: '#FFFFFF',
-                                    border: discharge.id === primaryDischarge.id ? '2px solid #007AFF' : '1px solid #E5E5EA',
-                                    borderRadius: '12px',
-                                    padding: '1.5rem'
-                                }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '1rem' }}>
-                                        <div>
-                                            <h4 style={{ fontSize: '1rem', fontWeight: 600, margin: 0, marginBottom: '0.25rem' }}>
-                                                Visit {allDischarges.length - index}
-                                                {discharge.id === primaryDischarge.id && (
-                                                    <span style={{ color: '#007AFF', marginLeft: '0.5rem' }}>(Current)</span>
-                                                )}
-                                            </h4>
-                                            <p style={{ fontSize: '0.875rem', color: '#6D6D72', margin: 0 }}>
-                                                {discharge.createdAt.toLocaleDateString()}
-                                            </p>
-                                        </div>
-                                        <span style={{
-                                            backgroundColor: '#F2F2F7',
-                                            color: '#1D1D1F',
-                                            fontSize: '0.75rem',
-                                            fontWeight: 600,
-                                            padding: '0.25rem 0.75rem',
-                                            borderRadius: '12px'
-                                        }}>
-                                            {discharge.medications.length} medication{discharge.medications.length !== 1 ? 's' : ''}
-                                        </span>
-                                    </div>
-                                    <div style={{ fontSize: '0.875rem', color: '#1D1D1F' }}>
-                                        Medications: {discharge.medications.map(med => med.name).join(', ')}
-                                    </div>
-                                    {discharge.notes && (
-                                        <div style={{ fontSize: '0.875rem', color: '#6D6D72', marginTop: '0.5rem' }}>
-                                            Notes: {discharge.notes}
-                                        </div>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
+                {/* Data Status Footer (helpful for debugging) */}
+                {!dataLoading && (adherenceMetrics || symptomAnalysis || timelineEvents.length > 0) && (
+                    <div style={{
+                        marginTop: '1rem',
+                        padding: '0.75rem 1rem',
+                        backgroundColor: '#f0f9ff',
+                        border: '1px solid #bae6fd',
+                        borderRadius: '8px',
+                        fontSize: '0.75rem',
+                        color: '#0369a1'
+                    }}>
+                        <strong>Data Summary:</strong> {' '}
+                        {adherenceMetrics && `${adherenceMetrics.overall.totalDoses} total doses`}
+                        {adherenceMetrics && symptomAnalysis && ', '}
+                        {symptomAnalysis && `${symptomAnalysis.recentEntries.length} symptom entries`}
+                        {(adherenceMetrics || symptomAnalysis) && timelineEvents.length > 0 && ', '}
+                        {timelineEvents.length > 0 && `${timelineEvents.length} timeline events`}
+                        {' • '}Last updated: {new Date().toLocaleTimeString()}
                     </div>
                 )}
+            </main>
 
-                {activeTab === 'medications' && (
-                    <div>
-                        <h3 style={{
-                            fontSize: '1.25rem',
-                            fontWeight: 600,
-                            marginBottom: '1rem',
-                            color: '#1D1D1F'
-                        }}>
-                            Medication Adherence
-                        </h3>
-
-                        {/* Overall Metrics */}
-                        <div style={{
-                            backgroundColor: '#FFFFFF',
-                            border: '1px solid #E5E5EA',
-                            borderRadius: '12px',
-                            padding: '1.5rem',
-                            marginBottom: '1.5rem'
-                        }}>
-                            <h4 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem' }}>Overall Adherence</h4>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem' }}>
-                                <div>
-                                    <div style={{ fontSize: '2rem', fontWeight: 700, color: '#007AFF' }}>
-                                        {aggregatedAdherence.overall.adherenceRate}%
-                                    </div>
-                                    <div style={{ fontSize: '0.875rem', color: '#6D6D72' }}>Adherence Rate</div>
-                                </div>
-                                <div>
-                                    <div style={{ fontSize: '1.5rem', fontWeight: 600, color: '#34C759' }}>
-                                        {aggregatedAdherence.overall.givenDoses}
-                                    </div>
-                                    <div style={{ fontSize: '0.875rem', color: '#6D6D72' }}>Doses Given</div>
-                                </div>
-                                <div>
-                                    <div style={{ fontSize: '1.5rem', fontWeight: 600, color: '#FF3B30' }}>
-                                        {aggregatedAdherence.overall.missedDoses}
-                                    </div>
-                                    <div style={{ fontSize: '0.875rem', color: '#6D6D72' }}>Doses Missed</div>
-                                </div>
-                                <div>
-                                    <div style={{ fontSize: '1.5rem', fontWeight: 600, color: '#FF9500' }}>
-                                        {aggregatedAdherence.overall.lateDoses}
-                                    </div>
-                                    <div style={{ fontSize: '0.875rem', color: '#6D6D72' }}>Late Doses</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Per Medication */}
-                        {aggregatedAdherence.perMedication.length > 0 && (
-                            <div style={{
-                                backgroundColor: '#FFFFFF',
-                                border: '1px solid #E5E5EA',
-                                borderRadius: '12px',
-                                padding: '1.5rem'
-                            }}>
-                                <h4 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem' }}>By Medication</h4>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                    {aggregatedAdherence.perMedication.map(med => (
-                                        <div key={med.medicationName} style={{
-                                            padding: '1rem',
-                                            border: '1px solid #F2F2F7',
-                                            borderRadius: '8px'
-                                        }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                                                <span style={{ fontWeight: 600 }}>{med.medicationName}</span>
-                                                <span style={{
-                                                    backgroundColor: med.adherenceRate >= 85 ? '#E8F5E8' : med.adherenceRate >= 70 ? '#FFF3CD' : '#FFEBEE',
-                                                    color: med.adherenceRate >= 85 ? '#34C759' : med.adherenceRate >= 70 ? '#FF9500' : '#FF3B30',
-                                                    padding: '0.25rem 0.75rem',
-                                                    borderRadius: '12px',
-                                                    fontSize: '0.875rem',
-                                                    fontWeight: 600
-                                                }}>
-                                                    {med.adherenceRate}%
-                                                </span>
-                                            </div>
-                                            <div style={{ fontSize: '0.875rem', color: '#6D6D72' }}>
-                                                {med.onTimeDoses} on time • {med.lateDoses} late • {med.missedDoses} missed
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {activeTab === 'symptoms' && (
-                    <div>
-                        <h3 style={{
-                            fontSize: '1.25rem',
-                            fontWeight: 600,
-                            marginBottom: '1rem',
-                            color: '#1D1D1F'
-                        }}>
-                            Symptom Analysis
-                        </h3>
-
-                        {/* Symptom Flags */}
-                        {aggregatedSymptoms.flags.length > 0 ? (
-                            <div style={{
-                                backgroundColor: '#FFFFFF',
-                                border: '1px solid #E5E5EA',
-                                borderRadius: '12px',
-                                padding: '1.5rem',
-                                marginBottom: '1.5rem'
-                            }}>
-                                <h4 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem' }}>
-                                    Symptom Alerts ({aggregatedSymptoms.flags.length})
-                                </h4>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                                    {aggregatedSymptoms.flags.map((flag, index) => (
-                                        <div key={index} style={{
-                                            padding: '1rem',
-                                            border: `1px solid ${flag.severity === 'high' ? '#FFEBEE' : flag.severity === 'medium' ? '#FFF3CD' : '#E5F4FF'}`,
-                                            backgroundColor: flag.severity === 'high' ? '#FFEBEE' : flag.severity === 'medium' ? '#FFF3CD' : '#E5F4FF',
-                                            borderRadius: '8px'
-                                        }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-                                                <div>
-                                                    <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>{flag.description}</div>
-                                                    <div style={{ fontSize: '0.875rem', color: '#6D6D72' }}>{flag.date}</div>
-                                                </div>
-                                                <span style={{
-                                                    backgroundColor: flag.severity === 'high' ? '#FF3B30' : flag.severity === 'medium' ? '#FF9500' : '#007AFF',
-                                                    color: '#FFFFFF',
-                                                    fontSize: '0.75rem',
-                                                    fontWeight: 600,
-                                                    padding: '0.25rem 0.75rem',
-                                                    borderRadius: '12px',
-                                                    textTransform: 'capitalize'
-                                                }}>
-                                                    {flag.severity}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        ) : (
-                            <div style={{
-                                backgroundColor: '#FFFFFF',
-                                border: '1px solid #E5E5EA',
-                                borderRadius: '12px',
-                                padding: '2rem',
-                                textAlign: 'center',
-                                marginBottom: '1.5rem'
-                            }}>
-                                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>✅</div>
-                                <h4 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.5rem' }}>No Symptom Alerts</h4>
-                                <p style={{ color: '#6D6D72', margin: 0 }}>This pet has no concerning symptom patterns.</p>
-                            </div>
-                        )}
-
-                        {/* Recent Symptom Trends */}
-                        {aggregatedSymptoms.recentEntries.length > 0 && (
-                            <div style={{
-                                backgroundColor: '#FFFFFF',
-                                border: '1px solid #E5E5EA',
-                                borderRadius: '12px',
-                                padding: '1.5rem'
-                            }}>
-                                <h4 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem' }}>Recent Trends</h4>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-                                    <div>
-                                        <div style={{ fontSize: '0.875rem', color: '#6D6D72', marginBottom: '0.25rem' }}>Appetite</div>
-                                        <div style={{ fontSize: '1.5rem', fontWeight: 600, color: '#1D1D1F' }}>
-                                            {aggregatedSymptoms.trends.appetite.current}/5
-                                        </div>
-                                        <div style={{ fontSize: '0.75rem', color: '#8E8E93' }}>
-                                            7-day avg: {aggregatedSymptoms.trends.appetite.sevenDayAverage}
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <div style={{ fontSize: '0.875rem', color: '#6D6D72', marginBottom: '0.25rem' }}>Energy</div>
-                                        <div style={{ fontSize: '1.5rem', fontWeight: 600, color: '#1D1D1F' }}>
-                                            {aggregatedSymptoms.trends.energy.current}/5
-                                        </div>
-                                        <div style={{ fontSize: '0.75rem', color: '#8E8E93' }}>
-                                            7-day avg: {aggregatedSymptoms.trends.energy.sevenDayAverage}
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <div style={{ fontSize: '0.875rem', color: '#6D6D72', marginBottom: '0.25rem' }}>Panting</div>
-                                        <div style={{ fontSize: '1.5rem', fontWeight: 600, color: aggregatedSymptoms.trends.panting.isFrequent ? '#FF9500' : '#34C759' }}>
-                                            {aggregatedSymptoms.trends.panting.isFrequent ? 'Frequent' : 'Normal'}
-                                        </div>
-                                        <div style={{ fontSize: '0.75rem', color: '#8E8E93' }}>
-                                            {aggregatedSymptoms.trends.panting.recentDays} days this week
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {activeTab === 'timeline' && (
-                    <div>
-                        <h3 style={{
-                            fontSize: '1.25rem',
-                            fontWeight: 600,
-                            marginBottom: '1rem',
-                            color: '#1D1D1F'
-                        }}>
-                            Patient Timeline ({timelineEvents.length} events)
-                        </h3>
-
-                        {timelineEvents.length > 0 ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                {timelineEvents.map(event => (
-                                    <div key={event.id} style={{
-                                        backgroundColor: '#FFFFFF',
-                                        border: '1px solid #E5E5EA',
-                                        borderRadius: '12px',
-                                        padding: '1.5rem',
-                                        borderLeft: `4px solid ${event.type === 'new_discharge' ? '#007AFF' :
-                                                event.type === 'dose' ? (event.severity === 'medium' ? '#FF3B30' : '#34C759') :
-                                                    event.severity === 'high' ? '#FF3B30' :
-                                                        event.severity === 'medium' ? '#FF9500' : '#007AFF'
-                                            }`
-                                    }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '0.5rem' }}>
-                                            <div>
-                                                <h4 style={{ fontSize: '1rem', fontWeight: 600, margin: 0, marginBottom: '0.25rem' }}>
-                                                    {event.title}
-                                                </h4>
-                                                <p style={{ fontSize: '0.875rem', color: '#1D1D1F', margin: 0 }}>
-                                                    {event.description}
-                                                </p>
-                                            </div>
-                                            <div style={{ textAlign: 'right' }}>
-                                                <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#1D1D1F' }}>
-                                                    {event.date}
-                                                </div>
-                                                {event.time && (
-                                                    <div style={{ fontSize: '0.75rem', color: '#6D6D72' }}>
-                                                        {event.time}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        {event.delay && event.delay > 0 && (
-                                            <div style={{
-                                                fontSize: '0.75rem',
-                                                color: '#FF9500',
-                                                backgroundColor: '#FFF3CD',
-                                                padding: '0.25rem 0.5rem',
-                                                borderRadius: '4px',
-                                                display: 'inline-block',
-                                                marginTop: '0.5rem'
-                                            }}>
-                                                {event.delay} minutes late
-                                            </div>
-                                        )}
-
-                                        {event.medicationName && (
-                                            <div style={{ fontSize: '0.75rem', color: '#6D6D72', marginTop: '0.25rem' }}>
-                                                {event.medicationName}
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div style={{
-                                backgroundColor: '#FFFFFF',
-                                border: '1px solid #E5E5EA',
-                                borderRadius: '12px',
-                                padding: '2rem',
-                                textAlign: 'center'
-                            }}>
-                                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📋</div>
-                                <h4 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.5rem' }}>No Timeline Events</h4>
-                                <p style={{ color: '#6D6D72', margin: 0 }}>Timeline events will appear as the pet owner logs doses and symptoms.</p>
-                            </div>
-                        )}
-                    </div>
-                )}
-            </div>
-
-            {/* CSS for spinner animation */}
+            {/* CSS for animations */}
             <style jsx>{`
                 @keyframes spin {
                     0% { transform: rotate(0deg); }

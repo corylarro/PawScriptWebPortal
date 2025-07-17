@@ -1,7 +1,7 @@
 // src/components/PetModal.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { addDoc, collection, updateDoc, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { COLLECTIONS, Client, Pet } from '@/types/firestore';
@@ -36,8 +36,25 @@ export default function PetModal({
         notes: ''
     });
 
+    // Format age from months to readable format
+    const formatAge = useCallback((totalMonths: number): string => {
+        if (totalMonths < 1) return 'Less than 1 month';
+        if (totalMonths < 12) {
+            return `${totalMonths} month${totalMonths === 1 ? '' : 's'}`;
+        }
+
+        const years = Math.floor(totalMonths / 12);
+        const months = totalMonths % 12;
+
+        if (months === 0) {
+            return `${years} year${years === 1 ? '' : 's'}`;
+        }
+
+        return `${years}y ${months}m`;
+    }, []);
+
     // Format current age for display in edit mode
-    const formatCurrentAge = (pet: Pet): string => {
+    const formatCurrentAge = useCallback((pet: Pet): string => {
         if (!pet.ageAtCreation || !pet.ageAsOfDate) {
             return '';
         }
@@ -47,7 +64,7 @@ export default function PetModal({
         const currentAgeInMonths = pet.ageAtCreation + monthsElapsed;
 
         return formatAge(currentAgeInMonths);
-    };
+    }, [formatAge]);
 
     // Pre-populate form when editing
     useEffect(() => {
@@ -74,23 +91,6 @@ export default function PetModal({
             });
         }
     }, [mode, pet, isOpen, formatCurrentAge]);
-
-    // Format age from months to readable format
-    const formatAge = (totalMonths: number): string => {
-        if (totalMonths < 1) return 'Less than 1 month';
-        if (totalMonths < 12) {
-            return `${totalMonths} month${totalMonths === 1 ? '' : 's'}`;
-        }
-
-        const years = Math.floor(totalMonths / 12);
-        const months = totalMonths % 12;
-
-        if (months === 0) {
-            return `${years} year${years === 1 ? '' : 's'}`;
-        }
-
-        return `${years}y ${months}m`;
-    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -195,7 +195,7 @@ export default function PetModal({
         return weight;
     };
 
-    // Age parsing function (same as in your AddPetModal)
+    // Age parsing function
     const parseAge = (ageInput: string): number | null => {
         if (!ageInput.trim()) return null;
 

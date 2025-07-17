@@ -1,17 +1,16 @@
-// src/app/dashboard/patients/page.tsx
+// src/app/dashboard/patients/page.tsx - Revamped UI with Real Data
 'use client';
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
-import { collection, query, where, orderBy, onSnapshot, limit, getDocs } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, limit } from 'firebase/firestore';
 import { useAuth } from '@/hooks/useAuth';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { db } from '@/lib/firebase';
 import { COLLECTIONS } from '@/types/firestore';
 import { Discharge } from '@/types/discharge';
-import { getPatientAdherenceSummary } from '@/lib/adherence';
-import { getSymptomFlagCount } from '@/lib/symptomFlags';
+import { getPatientListMetrics } from '@/lib/petDataUtils';
+import Navigation from '@/components/Navigation';
 import SymptomBadge from '@/components/SymptomBadge';
 
 interface PatientSummary {
@@ -22,13 +21,18 @@ interface PatientSummary {
     petWeight?: string;
     createdAt: Date; // First discharge date
     updatedAt: Date; // Most recent discharge date
+
+    // Enhanced metrics from petDataUtils
+    lastVisitDate: Date;
+    overallAdherenceRate: number; // All meds, all discharges (90d)
+    activeOnlyAdherenceRate: number; // Active meds only
+    recentSymptomAlerts: number; // Last 14 days
+    currentStatus: 'active' | 'inactive';
+
+    // Calculated fields
     medicationCount: number;
-    adherenceRate: number;
-    lastActivity?: Date;
-    isActive: boolean;
+    totalDischarges: number;
     alertLevel: 'none' | 'low' | 'medium' | 'high';
-    symptomFlagCount: number;
-    totalDischarges: number; // Number of discharge records for this pet
 }
 
 export default function PatientDashboardPage() {
@@ -40,10 +44,18 @@ export default function PatientDashboardPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
     const [filterAlert, setFilterAlert] = useState<'all' | 'high' | 'medium' | 'low' | 'none'>('all');
+    const [isMobile, setIsMobile] = useState(false);
+
+    // Check if mobile on mount
+    useEffect(() => {
+        const checkMobile = () => setIsMobile(window.innerWidth < 768);
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
 
     // Helper function to generate unique pet identifier
     const getPetId = (pet: { id?: string; name: string; species: string }): string => {
-        // Use pet.id if available, otherwise fallback to name + species combination
         return pet.id || `${pet.name}-${pet.species}`.toLowerCase().replace(/\s+/g, '-');
     };
 
@@ -55,7 +67,7 @@ export default function PatientDashboardPage() {
         return 'none';
     };
 
-    // Load patient summaries with real data - FIXED to group by pet
+    // Load patient summaries with enhanced metrics
     useEffect(() => {
         if (!vetUser || !clinic) return;
 
@@ -63,11 +75,11 @@ export default function PatientDashboardPage() {
             collection(db, COLLECTIONS.DISCHARGES),
             where('clinicId', '==', clinic.id),
             orderBy('createdAt', 'desc'),
-            limit(200) // Increased limit to ensure we get all pets
+            limit(200) // Reasonable limit to get all recent patients
         );
 
         const unsubscribe = onSnapshot(q, async (snapshot) => {
-            console.log('Loading patient summaries...');
+            console.log('Loading enhanced patient summaries...');
             setLoading(true);
 
             // Group discharges by pet first
@@ -87,7 +99,8 @@ export default function PatientDashboardPage() {
                     id: doc.id,
                     ...dischargeData,
                     createdAt: dischargeData.createdAt?.toDate() || new Date(),
-                    updatedAt: dischargeData.updatedAt?.toDate() || new Date()
+                    updatedAt: dischargeData.updatedAt?.toDate() || new Date(),
+                    visitDate: dischargeData.visitDate?.toDate() || dischargeData.createdAt?.toDate() || new Date()
                 } as Discharge;
 
                 const petId = getPetId(discharge.pet);
@@ -110,97 +123,101 @@ export default function PatientDashboardPage() {
                     // Update latest discharge if this one is more recent
                     if (discharge.createdAt > group.latestDischarge.createdAt) {
                         group.latestDischarge = discharge;
-                        // Update pet info from most recent discharge
-                        group.petName = discharge.pet.name;
-                        group.petSpecies = discharge.pet.species;
-                        if (discharge.pet.weight) {
-                            group.petWeight = discharge.pet.weight;
-                        }
+                        group.petWeight = discharge.pet.weight || group.petWeight;
                     }
                 }
             });
 
-            console.log(`Grouped ${snapshot.docs.length} discharges into ${petGroups.size} unique pets`);
+            console.log(`Found ${petGroups.size} unique pets across ${snapshot.docs.length} discharges`);
 
-            // Now create summaries based on the latest discharge for each pet
-            const summaries: PatientSummary[] = [];
+            // Now get enhanced metrics for each pet
+            const enhancedPatients = await Promise.all(
+                Array.from(petGroups.values()).map(async (petGroup) => {
+                    try {
+                        // Get enhanced metrics using our new utility function
+                        const metrics = await getPatientListMetrics(
+                            petGroup.petName,
+                            clinic.id,
+                            petGroup.petSpecies
+                        );
 
-            for (const group of petGroups.values()) {
-                const latestDischarge = group.latestDischarge;
+                        // Calculate alert level
+                        const alertLevel = calculateAlertLevel(
+                            metrics.overallAdherenceRate,
+                            metrics.recentSymptomAlerts
+                        );
 
-                try {
-                    // Get real adherence data for the latest discharge
-                    const adherenceSummary = await getPatientAdherenceSummary(latestDischarge.id, clinic.id);
+                        // Count total medications across all discharges
+                        const totalMedications = petGroup.allDischarges.reduce(
+                            (count, discharge) => count + (discharge.medications?.length || 0),
+                            0
+                        );
 
-                    // Get symptom flag count for the latest discharge
-                    const symptomCount = await getSymptomFlagCount(latestDischarge.id, clinic.id);
+                        const patient: PatientSummary = {
+                            dischargeId: petGroup.latestDischarge.id,
+                            petId: petGroup.petId,
+                            petName: petGroup.petName,
+                            petSpecies: petGroup.petSpecies,
+                            petWeight: petGroup.petWeight,
+                            createdAt: petGroup.allDischarges[petGroup.allDischarges.length - 1].createdAt, // First discharge
+                            updatedAt: petGroup.latestDischarge.createdAt, // Most recent discharge
 
-                    // Calculate alert level based on adherence rate and symptom flags
-                    const alertLevel = calculateAlertLevel(adherenceSummary.adherenceRate, symptomCount);
+                            // Enhanced metrics
+                            lastVisitDate: metrics.lastVisitDate,
+                            overallAdherenceRate: metrics.overallAdherenceRate,
+                            activeOnlyAdherenceRate: metrics.activeOnlyAdherenceRate,
+                            recentSymptomAlerts: metrics.recentSymptomAlerts,
+                            currentStatus: metrics.currentStatus,
 
-                    const summary: PatientSummary = {
-                        dischargeId: latestDischarge.id, // Use latest discharge ID for navigation
-                        petId: group.petId,
-                        petName: group.petName,
-                        petSpecies: group.petSpecies,
-                        petWeight: group.petWeight,
-                        createdAt: group.allDischarges[0].createdAt, // First discharge date
-                        updatedAt: latestDischarge.createdAt, // Most recent discharge date
-                        medicationCount: latestDischarge.medications.length,
-                        adherenceRate: adherenceSummary.adherenceRate,
-                        lastActivity: adherenceSummary.lastActivity,
-                        isActive: adherenceSummary.isActive,
-                        alertLevel,
-                        symptomFlagCount: symptomCount,
-                        totalDischarges: group.allDischarges.length
-                    };
+                            // Calculated fields
+                            medicationCount: totalMedications,
+                            totalDischarges: petGroup.allDischarges.length,
+                            alertLevel
+                        };
 
-                    summaries.push(summary);
-                } catch (error) {
-                    console.error(`Error loading data for discharge ${latestDischarge.id}:`, error);
+                        return patient;
+                    } catch (error) {
+                        console.error(`Error loading metrics for pet ${petGroup.petName}:`, error);
 
-                    // Fallback summary with basic data
-                    const summary: PatientSummary = {
-                        dischargeId: latestDischarge.id,
-                        petId: group.petId,
-                        petName: group.petName,
-                        petSpecies: group.petSpecies,
-                        petWeight: group.petWeight,
-                        createdAt: group.allDischarges[0].createdAt,
-                        updatedAt: latestDischarge.createdAt,
-                        medicationCount: latestDischarge.medications.length,
-                        adherenceRate: 0,
-                        lastActivity: undefined,
-                        isActive: false,
-                        alertLevel: 'none',
-                        symptomFlagCount: 0,
-                        totalDischarges: group.allDischarges.length
-                    };
+                        // Return basic patient data without enhanced metrics
+                        return {
+                            dischargeId: petGroup.latestDischarge.id,
+                            petId: petGroup.petId,
+                            petName: petGroup.petName,
+                            petSpecies: petGroup.petSpecies,
+                            petWeight: petGroup.petWeight,
+                            createdAt: petGroup.allDischarges[petGroup.allDischarges.length - 1].createdAt,
+                            updatedAt: petGroup.latestDischarge.createdAt,
+                            lastVisitDate: petGroup.latestDischarge.visitDate || petGroup.latestDischarge.createdAt,
+                            overallAdherenceRate: 0,
+                            activeOnlyAdherenceRate: 0,
+                            recentSymptomAlerts: 0,
+                            currentStatus: 'inactive' as const,
+                            medicationCount: petGroup.allDischarges.reduce((count, d) => count + (d.medications?.length || 0), 0),
+                            totalDischarges: petGroup.allDischarges.length,
+                            alertLevel: 'none' as const
+                        };
+                    }
+                })
+            );
 
-                    summaries.push(summary);
+            // Sort patients by priority (alert level) and then by recent activity
+            enhancedPatients.sort((a, b) => {
+                // First by alert level (high priority first)
+                const alertOrder = { 'high': 0, 'medium': 1, 'low': 2, 'none': 3 };
+                const alertDiff = alertOrder[a.alertLevel] - alertOrder[b.alertLevel];
+                if (alertDiff !== 0) return alertDiff;
+
+                // Then by active status
+                if (a.currentStatus !== b.currentStatus) {
+                    return a.currentStatus === 'active' ? -1 : 1;
                 }
-            }
 
-            // Sort by most recent activity first, then by alert level
-            summaries.sort((a, b) => {
-                // First sort by alert level (high priority first)
-                if (a.alertLevel !== b.alertLevel) {
-                    const alertOrder = { 'high': 4, 'medium': 3, 'low': 2, 'none': 1 };
-                    return alertOrder[b.alertLevel] - alertOrder[a.alertLevel];
-                }
-
-                // Then by activity status
-                if (a.isActive !== b.isActive) {
-                    return a.isActive ? -1 : 1;
-                }
-
-                // Finally by most recent activity or update
-                const aDate = a.lastActivity || a.updatedAt;
-                const bDate = b.lastActivity || b.updatedAt;
-                return bDate.getTime() - aDate.getTime();
+                // Finally by most recent visit
+                return b.lastVisitDate.getTime() - a.lastVisitDate.getTime();
             });
 
-            setPatients(summaries);
+            setPatients(enhancedPatients);
             setLoading(false);
         });
 
@@ -220,8 +237,8 @@ export default function PatientDashboardPage() {
 
         // Status filter
         if (filterStatus !== 'all') {
-            if (filterStatus === 'active' && !patient.isActive) return false;
-            if (filterStatus === 'inactive' && patient.isActive) return false;
+            if (filterStatus === 'active' && patient.currentStatus !== 'active') return false;
+            if (filterStatus === 'inactive' && patient.currentStatus !== 'inactive') return false;
         }
 
         // Alert filter
@@ -232,13 +249,22 @@ export default function PatientDashboardPage() {
         return true;
     });
 
-    // Utility functions
+    // Utility functions for styling
     const getAlertColor = (level: string) => {
         switch (level) {
             case 'high': return '#ef4444';
             case 'medium': return '#FF9500';
             case 'low': return '#eab308';
             default: return '#34C759';
+        }
+    };
+
+    const getAlertBgColor = (level: string) => {
+        switch (level) {
+            case 'high': return '#fee2e2';
+            case 'medium': return '#fef3c7';
+            case 'low': return '#fef3c7';
+            default: return '#dcfce7';
         }
     };
 
@@ -251,6 +277,16 @@ export default function PatientDashboardPage() {
         }
     };
 
+    const getAdherenceColor = (rate: number) => {
+        if (rate >= 85) return '#34C759'; // Success Green
+        if (rate >= 70) return '#FF9500'; // Warning Orange
+        return '#ef4444'; // Error Red
+    };
+
+    const getStatusColor = (status: 'active' | 'inactive') => {
+        return status === 'active' ? '#34C759' : '#6D6D72';
+    };
+
     const formatDate = (date: Date) => {
         return date.toLocaleDateString('en-US', {
             month: 'short',
@@ -259,53 +295,39 @@ export default function PatientDashboardPage() {
         });
     };
 
-    const formatLastActivity = (date?: Date) => {
-        if (!date) return 'No activity';
-
-        const now = new Date();
-        const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
-
-        if (diffInHours < 1) return 'Just now';
-        if (diffInHours < 24) return `${diffInHours}h ago`;
-
-        const diffInDays = Math.floor(diffInHours / 24);
-        if (diffInDays === 1) return '1 day ago';
-        if (diffInDays < 7) return `${diffInDays} days ago`;
-
-        const diffInWeeks = Math.floor(diffInDays / 7);
-        if (diffInWeeks === 1) return '1 week ago';
-        if (diffInWeeks < 4) return `${diffInWeeks} weeks ago`;
-
-        return formatDate(date);
+    // Calculate quick stats from real data
+    const quickStats = {
+        totalPatients: patients.length,
+        activePatients: patients.filter(p => p.currentStatus === 'active').length,
+        highPriorityPatients: patients.filter(p => p.alertLevel === 'high').length,
+        avgAdherence: Math.round(patients.reduce((sum, p) => sum + p.overallAdherenceRate, 0) / patients.length) || 0,
+        totalAlerts: patients.reduce((sum, p) => sum + p.recentSymptomAlerts, 0)
     };
 
     if (authLoading || loading) {
         return (
             <div style={{
                 minHeight: '100vh',
+                backgroundColor: '#f8fafc',
+                fontFamily: 'Nunito, -apple-system, BlinkMacSystemFont, sans-serif',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: '#F2F2F7',
-                fontFamily: 'Nunito, -apple-system, BlinkMacSystemFont, sans-serif'
+                justifyContent: 'center'
             }}>
-                <div style={{ textAlign: 'center' }}>
+                <div style={{
+                    textAlign: 'center',
+                    color: '#64748b'
+                }}>
                     <div style={{
-                        width: '48px',
-                        height: '48px',
-                        border: '3px solid #e2e8f0',
-                        borderTop: '3px solid #007AFF',
+                        width: '40px',
+                        height: '40px',
+                        border: '4px solid #e2e8f0',
+                        borderTop: '4px solid #007AFF',
                         borderRadius: '50%',
                         animation: 'spin 1s linear infinite',
                         margin: '0 auto 1rem auto'
                     }} />
-                    <p style={{
-                        color: '#6D6D72',
-                        fontSize: '1rem',
-                        fontWeight: '400'
-                    }}>
-                        Loading patients...
-                    </p>
+                    Loading patients...
                 </div>
             </div>
         );
@@ -314,211 +336,42 @@ export default function PatientDashboardPage() {
     return (
         <div style={{
             minHeight: '100vh',
-            backgroundColor: '#F2F2F7',
+            backgroundColor: '#f8fafc',
             fontFamily: 'Nunito, -apple-system, BlinkMacSystemFont, sans-serif'
         }}>
-            {/* Header */}
-            <header style={{
-                backgroundColor: '#FFFFFF',
-                borderBottom: '1px solid #e2e8f0',
-                padding: '1.25rem 2rem',
-                position: 'sticky',
-                top: 0,
-                zIndex: 10,
-                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)',
-                backdropFilter: 'blur(10px)'
-            }}>
-                <div style={{
-                    maxWidth: '1400px',
-                    margin: '0 auto',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    flexWrap: 'wrap',
-                    gap: '1rem'
-                }}>
-                    {/* Logo & Navigation */}
-                    <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '2rem',
-                        flex: '1',
-                        minWidth: '280px'
-                    }}>
-                        <Link
-                            href="/dashboard"
-                            style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '0.75rem',
-                                textDecoration: 'none',
-                                transition: 'transform 0.2s ease'
-                            }}
-                            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
-                            onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                        >
-                            <div style={{
-                                width: '40px',
-                                height: '40px',
-                                backgroundColor: '#007AFF',
-                                borderRadius: '10px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                boxShadow: '0 4px 12px rgba(0, 122, 255, 0.25)',
-                                overflow: 'hidden'
-                            }}>
-                                <Image
-                                    src="/images/pawscript-logo.png"
-                                    alt="PawScript"
-                                    width={24}
-                                    height={24}
-                                    style={{ objectFit: 'contain' }}
-                                />
-                            </div>
-                            <span style={{
-                                fontSize: '1.375rem',
-                                fontWeight: '700',
-                                color: '#1e293b'
-                            }}>
-                                PawScript
-                            </span>
-                        </Link>
-
-                        <nav style={{
-                            display: 'flex',
-                            gap: '1.75rem',
-                            alignItems: 'center'
-                        }}>
-                            <Link
-                                href="/dashboard"
-                                style={{
-                                    color: '#6D6D72',
-                                    textDecoration: 'none',
-                                    fontSize: '0.875rem',
-                                    fontWeight: '500',
-                                    transition: 'all 0.2s ease',
-                                    padding: '0.375rem 0'
-                                }}
-                                onMouseEnter={(e) => {
-                                    e.currentTarget.style.color = '#007AFF';
-                                    e.currentTarget.style.transform = 'translateY(-1px)';
-                                }}
-                                onMouseLeave={(e) => {
-                                    e.currentTarget.style.color = '#6D6D72';
-                                    e.currentTarget.style.transform = 'translateY(0)';
-                                }}
-                            >
-                                Dashboard
-                            </Link>
-                            <div style={{
-                                color: '#007AFF',
-                                textDecoration: 'none',
-                                fontSize: '0.875rem',
-                                fontWeight: '600',
-                                borderBottom: '2px solid #007AFF',
-                                paddingBottom: '0.375rem'
-                            }}>
-                                Patients
-                            </div>
-                            <Link
-                                href="/dashboard/new-discharge"
-                                style={{
-                                    color: '#6D6D72',
-                                    textDecoration: 'none',
-                                    fontSize: '0.875rem',
-                                    fontWeight: '500',
-                                    transition: 'all 0.2s ease',
-                                    padding: '0.375rem 0'
-                                }}
-                                onMouseEnter={(e) => {
-                                    e.currentTarget.style.color = '#007AFF';
-                                    e.currentTarget.style.transform = 'translateY(-1px)';
-                                }}
-                                onMouseLeave={(e) => {
-                                    e.currentTarget.style.color = '#6D6D72';
-                                    e.currentTarget.style.transform = 'translateY(0)';
-                                }}
-                            >
-                                New Discharge
-                            </Link>
-                        </nav>
-                    </div>
-
-                    {/* User Menu */}
-                    <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.875rem'
-                    }}>
-                        <div style={{
-                            width: '36px',
-                            height: '36px',
-                            backgroundColor: '#007AFF',
-                            borderRadius: '50%',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            color: 'white',
-                            fontSize: '0.875rem',
-                            fontWeight: '600',
-                            boxShadow: '0 2px 8px rgba(0, 122, 255, 0.25)'
-                        }}>
-                            {vetUser?.firstName?.[0] || 'U'}
-                        </div>
-                        <div>
-                            <div style={{
-                                fontSize: '0.875rem',
-                                fontWeight: '600',
-                                color: '#1e293b'
-                            }}>
-                                Dr. {vetUser?.firstName} {vetUser?.lastName}
-                            </div>
-                            <div style={{
-                                fontSize: '0.75rem',
-                                color: '#6D6D72',
-                                fontWeight: '400'
-                            }}>
-                                {clinic?.name}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </header>
+            {/* Navigation Component */}
+            <Navigation activeRoute="/dashboard/patients" />
 
             {/* Main Content */}
             <main style={{
                 maxWidth: '1400px',
                 margin: '0 auto',
-                padding: '2rem'
+                padding: isMobile ? '1rem' : '2rem'
             }}>
                 {/* Page Header */}
                 <div style={{
                     display: 'flex',
+                    flexDirection: isMobile ? 'column' : 'row',
                     justifyContent: 'space-between',
-                    alignItems: 'flex-start',
-                    marginBottom: '2rem',
-                    flexWrap: 'wrap',
-                    gap: '1.5rem'
+                    alignItems: isMobile ? 'flex-start' : 'center',
+                    gap: isMobile ? '1rem' : '0',
+                    marginBottom: '2rem'
                 }}>
-                    <div style={{ maxWidth: '600px' }}>
+                    <div>
                         <h1 style={{
-                            fontSize: '2.25rem',
+                            fontSize: isMobile ? '1.75rem' : '2.25rem',
                             fontWeight: '700',
                             color: '#1e293b',
-                            margin: '0 0 0.75rem 0',
-                            lineHeight: '1.2'
+                            margin: '0 0 0.5rem 0'
                         }}>
-                            Patient Monitoring
+                            Patient Management
                         </h1>
                         <p style={{
-                            fontSize: '1.125rem',
-                            color: '#6D6D72',
-                            margin: '0',
-                            fontWeight: '400',
-                            lineHeight: '1.5'
+                            fontSize: isMobile ? '0.875rem' : '1rem',
+                            color: '#64748b',
+                            margin: 0
                         }}>
-                            Track medication adherence and symptom logs from pet owners in real-time
+                            Monitor adherence, symptoms, and treatment progress for all your patients
                         </p>
                     </div>
 
@@ -527,27 +380,28 @@ export default function PatientDashboardPage() {
                         style={{
                             backgroundColor: '#007AFF',
                             color: 'white',
-                            padding: '0.875rem 1.75rem',
-                            borderRadius: '10px',
+                            padding: '0.75rem 1.5rem',
+                            borderRadius: '8px',
                             textDecoration: 'none',
                             fontWeight: '600',
                             fontSize: '0.875rem',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '0.625rem',
-                            transition: 'all 0.2s ease',
-                            boxShadow: '0 2px 8px rgba(0, 122, 255, 0.25)'
+                            gap: '0.5rem',
+                            whiteSpace: 'nowrap',
+                            boxShadow: '0 4px 12px rgba(0, 122, 255, 0.25)',
+                            transition: 'all 0.2s ease'
                         }}
                         onMouseEnter={(e) => {
-                            e.currentTarget.style.transform = 'translateY(-2px)';
-                            e.currentTarget.style.boxShadow = '0 6px 20px rgba(0, 122, 255, 0.35)';
+                            e.currentTarget.style.transform = 'translateY(-1px)';
+                            e.currentTarget.style.boxShadow = '0 6px 16px rgba(0, 122, 255, 0.35)';
                         }}
                         onMouseLeave={(e) => {
                             e.currentTarget.style.transform = 'translateY(0)';
-                            e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 122, 255, 0.25)';
+                            e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 122, 255, 0.25)';
                         }}
                     >
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <line x1="12" y1="5" x2="12" y2="19" />
                             <line x1="5" y1="12" x2="19" y2="12" />
                         </svg>
@@ -555,198 +409,210 @@ export default function PatientDashboardPage() {
                     </Link>
                 </div>
 
-                {/* Summary Stats */}
+                {/* Quick Stats at Top */}
                 <div style={{
                     display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-                    gap: '1.5rem',
-                    marginBottom: '2.5rem'
+                    gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(5, 1fr)',
+                    gap: isMobile ? '1rem' : '1.5rem',
+                    marginBottom: '2rem'
                 }}>
                     <div style={{
-                        backgroundColor: '#FFFFFF',
-                        padding: '2rem',
-                        borderRadius: '16px',
+                        backgroundColor: 'white',
+                        borderRadius: '12px',
+                        padding: isMobile ? '1.25rem' : '1.5rem',
                         border: '1px solid #e2e8f0',
-                        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)',
-                        textAlign: 'center'
-                    }}>
+                        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+                        textAlign: 'center',
+                        transition: 'transform 0.2s ease'
+                    }}
+                        onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                        onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                    >
                         <div style={{
-                            fontSize: '2.5rem',
+                            fontSize: isMobile ? '1.75rem' : '2rem',
                             fontWeight: '700',
                             color: '#007AFF',
-                            marginBottom: '0.75rem'
+                            marginBottom: '0.5rem'
                         }}>
-                            {filteredPatients.length}
+                            {quickStats.totalPatients}
                         </div>
                         <div style={{
-                            fontSize: '0.875rem',
+                            fontSize: '0.75rem',
                             color: '#6D6D72',
                             fontWeight: '600',
-                            marginBottom: '0.25rem'
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em'
                         }}>
                             Total Patients
                         </div>
-                        <div style={{
-                            fontSize: '0.75rem',
-                            color: '#9ca3af',
-                            fontWeight: '400'
-                        }}>
-                            Unique pets under care
-                        </div>
                     </div>
 
                     <div style={{
-                        backgroundColor: '#FFFFFF',
-                        padding: '2rem',
-                        borderRadius: '16px',
+                        backgroundColor: 'white',
+                        borderRadius: '12px',
+                        padding: isMobile ? '1.25rem' : '1.5rem',
                         border: '1px solid #e2e8f0',
-                        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)',
-                        textAlign: 'center'
-                    }}>
+                        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+                        textAlign: 'center',
+                        transition: 'transform 0.2s ease'
+                    }}
+                        onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                        onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                    >
                         <div style={{
-                            fontSize: '2.5rem',
+                            fontSize: isMobile ? '1.75rem' : '2rem',
                             fontWeight: '700',
                             color: '#34C759',
-                            marginBottom: '0.75rem'
+                            marginBottom: '0.5rem'
                         }}>
-                            {filteredPatients.filter(p => p.isActive).length}
-                        </div>
-                        <div style={{
-                            fontSize: '0.875rem',
-                            color: '#6D6D72',
-                            fontWeight: '600',
-                            marginBottom: '0.25rem'
-                        }}>
-                            Active Treatments
+                            {quickStats.activePatients}
                         </div>
                         <div style={{
                             fontSize: '0.75rem',
-                            color: '#9ca3af',
-                            fontWeight: '400'
+                            color: '#6D6D72',
+                            fontWeight: '600',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em'
                         }}>
-                            Activity in last 7 days
+                            Active Patients
                         </div>
                     </div>
 
                     <div style={{
-                        backgroundColor: '#FFFFFF',
-                        padding: '2rem',
-                        borderRadius: '16px',
+                        backgroundColor: 'white',
+                        borderRadius: '12px',
+                        padding: isMobile ? '1.25rem' : '1.5rem',
                         border: '1px solid #e2e8f0',
-                        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)',
-                        textAlign: 'center'
-                    }}>
+                        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+                        textAlign: 'center',
+                        transition: 'transform 0.2s ease'
+                    }}
+                        onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                        onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                    >
                         <div style={{
-                            fontSize: '2.5rem',
+                            fontSize: isMobile ? '1.75rem' : '2rem',
                             fontWeight: '700',
                             color: '#ef4444',
-                            marginBottom: '0.75rem'
+                            marginBottom: '0.5rem'
                         }}>
-                            {filteredPatients.filter(p => p.alertLevel === 'high').length}
+                            {quickStats.highPriorityPatients}
                         </div>
                         <div style={{
-                            fontSize: '0.875rem',
+                            fontSize: '0.75rem',
                             color: '#6D6D72',
                             fontWeight: '600',
-                            marginBottom: '0.25rem'
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em'
                         }}>
                             High Priority
                         </div>
+                    </div>
+
+                    <div style={{
+                        backgroundColor: 'white',
+                        borderRadius: '12px',
+                        padding: isMobile ? '1.25rem' : '1.5rem',
+                        border: '1px solid #e2e8f0',
+                        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+                        textAlign: 'center',
+                        transition: 'transform 0.2s ease'
+                    }}
+                        onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                        onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                    >
+                        <div style={{
+                            fontSize: isMobile ? '1.75rem' : '2rem',
+                            fontWeight: '700',
+                            color: getAdherenceColor(quickStats.avgAdherence),
+                            marginBottom: '0.5rem'
+                        }}>
+                            {quickStats.avgAdherence}%
+                        </div>
                         <div style={{
                             fontSize: '0.75rem',
-                            color: '#9ca3af',
-                            fontWeight: '400'
+                            color: '#6D6D72',
+                            fontWeight: '600',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em'
                         }}>
-                            Requires attention
+                            Avg Adherence
                         </div>
                     </div>
 
                     <div style={{
-                        backgroundColor: '#FFFFFF',
-                        padding: '2rem',
-                        borderRadius: '16px',
+                        backgroundColor: 'white',
+                        borderRadius: '12px',
+                        padding: isMobile ? '1.25rem' : '1.5rem',
                         border: '1px solid #e2e8f0',
-                        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)',
-                        textAlign: 'center'
-                    }}>
+                        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+                        textAlign: 'center',
+                        transition: 'transform 0.2s ease',
+                        gridColumn: isMobile ? 'span 2' : 'auto'
+                    }}
+                        onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                        onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                    >
                         <div style={{
-                            fontSize: '2.5rem',
+                            fontSize: isMobile ? '1.75rem' : '2rem',
                             fontWeight: '700',
-                            color: '#34C759',
-                            marginBottom: '0.75rem'
+                            color: '#FF9500',
+                            marginBottom: '0.5rem'
                         }}>
-                            {filteredPatients.length > 0
-                                ? Math.round(filteredPatients.reduce((acc, p) => acc + p.adherenceRate, 0) / filteredPatients.length)
-                                : 0}%
-                        </div>
-                        <div style={{
-                            fontSize: '0.875rem',
-                            color: '#6D6D72',
-                            fontWeight: '600',
-                            marginBottom: '0.25rem'
-                        }}>
-                            Avg Adherence
+                            {quickStats.totalAlerts}
                         </div>
                         <div style={{
                             fontSize: '0.75rem',
-                            color: '#9ca3af',
-                            fontWeight: '400'
+                            color: '#6D6D72',
+                            fontWeight: '600',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em'
                         }}>
-                            Overall compliance rate
+                            Recent Alerts
                         </div>
                     </div>
                 </div>
 
-                {/* Filters */}
+                {/* Search and Filters */}
                 <div style={{
-                    backgroundColor: '#FFFFFF',
-                    padding: '1.75rem',
-                    borderRadius: '16px',
+                    backgroundColor: 'white',
+                    borderRadius: '12px',
+                    padding: isMobile ? '1.25rem' : '1.5rem',
+                    marginBottom: '1.5rem',
                     border: '1px solid #e2e8f0',
-                    marginBottom: '2rem',
-                    display: 'flex',
-                    gap: '1.25rem',
-                    alignItems: 'center',
-                    flexWrap: 'wrap',
-                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)'
+                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)'
                 }}>
-                    {/* Search */}
-                    <div style={{ flex: '1', minWidth: '250px' }}>
-                        <div style={{
-                            position: 'relative',
-                            display: 'flex',
-                            alignItems: 'center'
-                        }}>
-                            <svg
-                                width="20"
-                                height="20"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="#6D6D72"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                style={{
-                                    position: 'absolute',
-                                    left: '0.875rem',
-                                    zIndex: 1
-                                }}
-                            >
-                                <circle cx="11" cy="11" r="8" />
-                                <path d="m21 21-4.35-4.35" />
-                            </svg>
+                    <div style={{
+                        display: 'flex',
+                        flexDirection: isMobile ? 'column' : 'row',
+                        gap: '1rem',
+                        alignItems: isMobile ? 'stretch' : 'center'
+                    }}>
+                        <div style={{ flex: 1, position: 'relative' }}>
+                            <div style={{
+                                position: 'absolute',
+                                left: '1rem',
+                                top: '50%',
+                                transform: 'translateY(-50%)',
+                                color: '#9ca3af'
+                            }}>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <circle cx="11" cy="11" r="8" />
+                                    <path d="m21 21-4.35-4.35" />
+                                </svg>
+                            </div>
                             <input
                                 type="text"
-                                placeholder="Search by pet name or species..."
+                                placeholder="Search pets by name or species..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 style={{
                                     width: '100%',
-                                    padding: '0.75rem 0.875rem 0.75rem 3rem',
+                                    padding: '0.875rem 1rem 0.875rem 2.5rem',
                                     border: '1px solid #e2e8f0',
-                                    borderRadius: '10px',
+                                    borderRadius: '8px',
                                     fontSize: '0.875rem',
-                                    fontFamily: 'Nunito, -apple-system, BlinkMacSystemFont, sans-serif',
+                                    fontFamily: 'inherit',
                                     outline: 'none',
                                     transition: 'border-color 0.2s ease'
                                 }}
@@ -754,364 +620,340 @@ export default function PatientDashboardPage() {
                                 onBlur={(e) => e.target.style.borderColor = '#e2e8f0'}
                             />
                         </div>
+
+                        <div style={{
+                            display: 'flex',
+                            gap: '0.75rem',
+                            flexWrap: 'wrap'
+                        }}>
+                            <select
+                                value={filterStatus}
+                                onChange={(e) => setFilterStatus(e.target.value as 'all' | 'active' | 'inactive')}
+                                style={{
+                                    padding: '0.875rem 1rem',
+                                    border: '1px solid #e2e8f0',
+                                    borderRadius: '8px',
+                                    fontSize: '0.875rem',
+                                    backgroundColor: 'white',
+                                    fontFamily: 'inherit',
+                                    minWidth: '120px',
+                                    outline: 'none'
+                                }}
+                            >
+                                <option value="all">All Status</option>
+                                <option value="active">Active</option>
+                                <option value="inactive">Inactive</option>
+                            </select>
+
+                            <select
+                                value={filterAlert}
+                                onChange={(e) => setFilterAlert(e.target.value as 'all' | 'high' | 'medium' | 'low' | 'none')}
+                                style={{
+                                    padding: '0.875rem 1rem',
+                                    border: '1px solid #e2e8f0',
+                                    borderRadius: '8px',
+                                    fontSize: '0.875rem',
+                                    backgroundColor: 'white',
+                                    fontFamily: 'inherit',
+                                    minWidth: '120px',
+                                    outline: 'none'
+                                }}
+                            >
+                                <option value="all">All Priority</option>
+                                <option value="high">High Priority</option>
+                                <option value="medium">Medium Priority</option>
+                                <option value="low">Low Priority</option>
+                                <option value="none">Good</option>
+                            </select>
+                        </div>
                     </div>
-
-                    {/* Status Filter */}
-                    <select
-                        value={filterStatus}
-                        onChange={(e) => setFilterStatus(e.target.value as 'all' | 'active' | 'inactive')}
-                        style={{
-                            padding: '0.75rem 1rem',
-                            border: '1px solid #e2e8f0',
-                            borderRadius: '10px',
-                            fontSize: '0.875rem',
-                            fontFamily: 'Nunito, -apple-system, BlinkMacSystemFont, sans-serif',
-                            outline: 'none',
-                            backgroundColor: '#FFFFFF',
-                            cursor: 'pointer'
-                        }}
-                    >
-                        <option value="all">All Status</option>
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
-                    </select>
-
-                    {/* Alert Filter */}
-                    <select
-                        value={filterAlert}
-                        onChange={(e) => setFilterAlert(e.target.value as 'all' | 'high' | 'medium' | 'low' | 'none')}
-                        style={{
-                            padding: '0.75rem 1rem',
-                            border: '1px solid #e2e8f0',
-                            borderRadius: '10px',
-                            fontSize: '0.875rem',
-                            fontFamily: 'Nunito, -apple-system, BlinkMacSystemFont, sans-serif',
-                            outline: 'none',
-                            backgroundColor: '#FFFFFF',
-                            cursor: 'pointer'
-                        }}
-                    >
-                        <option value="all">All Priorities</option>
-                        <option value="high">High Priority</option>
-                        <option value="medium">Medium Priority</option>
-                        <option value="low">Low Priority</option>
-                        <option value="none">No Issues</option>
-                    </select>
-
-                    {/* Clear Filters */}
-                    {(searchTerm || filterStatus !== 'all' || filterAlert !== 'all') && (
-                        <button
-                            onClick={() => {
-                                setSearchTerm('');
-                                setFilterStatus('all');
-                                setFilterAlert('all');
-                            }}
-                            style={{
-                                padding: '0.75rem 1rem',
-                                border: '1px solid #e2e8f0',
-                                borderRadius: '10px',
-                                fontSize: '0.875rem',
-                                fontFamily: 'Nunito, -apple-system, BlinkMacSystemFont, sans-serif',
-                                backgroundColor: '#F2F2F7',
-                                color: '#6D6D72',
-                                cursor: 'pointer',
-                                fontWeight: '500',
-                                transition: 'all 0.2s ease'
-                            }}
-                            onMouseEnter={(e) => {
-                                e.currentTarget.style.backgroundColor = '#e2e8f0';
-                                e.currentTarget.style.color = '#1e293b';
-                            }}
-                            onMouseLeave={(e) => {
-                                e.currentTarget.style.backgroundColor = '#F2F2F7';
-                                e.currentTarget.style.color = '#6D6D72';
-                            }}
-                        >
-                            Clear Filters
-                        </button>
-                    )}
                 </div>
 
                 {/* Patient List */}
                 <div style={{
-                    backgroundColor: '#FFFFFF',
-                    borderRadius: '16px',
+                    backgroundColor: 'white',
+                    borderRadius: '12px',
                     border: '1px solid #e2e8f0',
-                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)',
-                    overflow: 'hidden'
+                    overflow: 'hidden',
+                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)'
                 }}>
                     {filteredPatients.length === 0 ? (
                         <div style={{
-                            textAlign: 'center',
                             padding: '4rem 2rem',
-                            color: '#6D6D72'
+                            textAlign: 'center',
+                            color: '#6b7280'
                         }}>
-                            <div style={{
-                                width: '80px',
-                                height: '80px',
-                                backgroundColor: '#F2F2F7',
-                                borderRadius: '50%',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                margin: '0 auto 1.5rem auto',
-                                fontSize: '2rem'
-                            }}>
-                                🐾
-                            </div>
+                            <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🐾</div>
                             <h3 style={{
-                                fontSize: '1.375rem',
+                                fontSize: '1.25rem',
                                 fontWeight: '600',
-                                marginBottom: '0.75rem',
-                                color: '#1e293b'
+                                marginBottom: '0.5rem',
+                                color: '#374151'
                             }}>
-                                {patients.length === 0 ? 'No patients yet' : 'No patients match your filters'}
+                                {searchTerm || filterStatus !== 'all' || filterAlert !== 'all'
+                                    ? 'No patients match your filters'
+                                    : 'No patients found'
+                                }
                             </h3>
-                            <p style={{
-                                fontSize: '1rem',
-                                marginBottom: '2rem',
-                                fontWeight: '400',
-                                maxWidth: '400px',
-                                margin: '0 auto 2rem auto',
-                                lineHeight: '1.5'
-                            }}>
-                                {patients.length === 0
-                                    ? 'Create your first discharge to start monitoring patient adherence and symptoms.'
-                                    : 'Try adjusting your search or filter criteria to find patients.'
+                            <p style={{ fontSize: '0.875rem', margin: 0 }}>
+                                {searchTerm || filterStatus !== 'all' || filterAlert !== 'all'
+                                    ? 'Try adjusting your search or filters'
+                                    : 'Create your first discharge to see patients here'
                                 }
                             </p>
-                            {patients.length === 0 && (
-                                <Link
-                                    href="/dashboard/new-discharge"
-                                    style={{
-                                        backgroundColor: '#007AFF',
-                                        color: 'white',
-                                        padding: '0.875rem 1.75rem',
-                                        borderRadius: '10px',
-                                        textDecoration: 'none',
-                                        fontWeight: '600',
-                                        fontSize: '0.875rem',
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: '0.625rem',
-                                        transition: 'all 0.2s ease'
-                                    }}
-                                    onMouseEnter={(e) => {
-                                        e.currentTarget.style.transform = 'translateY(-2px)';
-                                        e.currentTarget.style.boxShadow = '0 6px 20px rgba(0, 122, 255, 0.35)';
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        e.currentTarget.style.transform = 'translateY(0)';
-                                        e.currentTarget.style.boxShadow = 'none';
-                                    }}
-                                >
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <line x1="12" y1="5" x2="12" y2="19" />
-                                        <line x1="5" y1="12" x2="19" y2="12" />
-                                    </svg>
-                                    Create First Discharge
-                                </Link>
-                            )}
                         </div>
                     ) : (
                         <div>
-                            {/* Table Header */}
-                            <div style={{
-                                display: 'grid',
-                                gridTemplateColumns: '2.5fr 1fr 1fr 1fr 1fr 1fr',
-                                gap: '1.25rem',
-                                padding: '1.25rem 1.75rem',
-                                backgroundColor: '#F2F2F7',
-                                borderBottom: '1px solid #e2e8f0',
-                                fontSize: '0.75rem',
-                                fontWeight: '600',
-                                color: '#6D6D72',
-                                textTransform: 'uppercase',
-                                letterSpacing: '0.075em'
-                            }}>
-                                <div>Patient</div>
-                                <div style={{ textAlign: 'center' }}>Medications</div>
-                                <div style={{ textAlign: 'center' }}>Adherence</div>
-                                <div style={{ textAlign: 'center' }}>Symptoms</div>
-                                <div style={{ textAlign: 'center' }}>Status</div>
-                                <div style={{ textAlign: 'center' }}>Priority</div>
-                            </div>
+                            {/* Desktop Table Header */}
+                            {!isMobile && (
+                                <div style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: '2.5fr 1fr 1.2fr 0.8fr 0.8fr 1fr',
+                                    gap: '1.25rem',
+                                    padding: '1.25rem 2rem',
+                                    backgroundColor: '#f8fafc',
+                                    borderBottom: '1px solid #e2e8f0',
+                                    fontSize: '0.75rem',
+                                    fontWeight: '600',
+                                    color: '#6D6D72',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.075em'
+                                }}>
+                                    <div>Patient</div>
+                                    <div style={{ textAlign: 'center' }}>Last Visit</div>
+                                    <div style={{ textAlign: 'center' }}>Adherence</div>
+                                    <div style={{ textAlign: 'center' }}>Symptoms</div>
+                                    <div style={{ textAlign: 'center' }}>Status</div>
+                                    <div style={{ textAlign: 'center' }}>Priority</div>
+                                </div>
+                            )}
 
                             {/* Patient Rows */}
                             {filteredPatients.map((patient, index) => (
                                 <Link
-                                    key={patient.dischargeId}
+                                    key={patient.petId}
                                     href={`/dashboard/patients/${patient.dischargeId}`}
                                     style={{
-                                        display: 'grid',
-                                        gridTemplateColumns: '2.5fr 1fr 1fr 1fr 1fr 1fr',
-                                        gap: '1.25rem',
-                                        padding: '1.5rem 1.75rem',
+                                        display: isMobile ? 'block' : 'grid',
+                                        gridTemplateColumns: isMobile ? 'none' : '2.5fr 1fr 1.2fr 0.8fr 0.8fr 1fr',
+                                        gap: isMobile ? '0' : '1.25rem',
+                                        padding: isMobile ? '1.5rem' : '1.75rem 2rem',
                                         borderBottom: index < filteredPatients.length - 1 ? '1px solid #f1f5f9' : 'none',
                                         textDecoration: 'none',
-                                        transition: 'all 0.2s ease',
+                                        color: 'inherit',
+                                        transition: 'background-color 0.2s ease',
                                         cursor: 'pointer'
                                     }}
-                                    onMouseEnter={(e) => {
-                                        e.currentTarget.style.backgroundColor = '#f8fafc';
-                                        e.currentTarget.style.transform = 'translateY(-1px)';
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        e.currentTarget.style.backgroundColor = 'transparent';
-                                        e.currentTarget.style.transform = 'translateY(0)';
-                                    }}
+                                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f8fafc'}
+                                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                                 >
-                                    {/* Patient Info */}
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                        <div style={{
-                                            width: '48px',
-                                            height: '48px',
-                                            backgroundColor: '#007AFF',
-                                            borderRadius: '12px',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            fontSize: '1.5rem',
-                                            flexShrink: 0,
-                                            boxShadow: '0 2px 8px rgba(0, 122, 255, 0.25)'
-                                        }}>
-                                            🐾
-                                        </div>
-                                        <div style={{ minWidth: 0, flex: 1 }}>
+                                    {isMobile ? (
+                                        // Mobile layout
+                                        <div>
                                             <div style={{
-                                                fontSize: '1rem',
-                                                fontWeight: '600',
-                                                color: '#1e293b',
-                                                marginBottom: '0.375rem',
                                                 display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '0.5rem'
+                                                justifyContent: 'space-between',
+                                                alignItems: 'flex-start',
+                                                marginBottom: '1rem'
                                             }}>
-                                                {patient.petName}
-                                                {patient.totalDischarges > 1 && (
-                                                    <span style={{
-                                                        fontSize: '0.75rem',
-                                                        backgroundColor: '#e0f2fe',
-                                                        color: '#0369a1',
-                                                        padding: '0.125rem 0.375rem',
-                                                        borderRadius: '6px',
+                                                <div>
+                                                    <h3 style={{
+                                                        fontSize: '1.25rem',
+                                                        fontWeight: '600',
+                                                        color: '#1e293b',
+                                                        margin: '0 0 0.25rem 0'
+                                                    }}>
+                                                        {patient.petName}
+                                                    </h3>
+                                                    <p style={{
+                                                        fontSize: '0.875rem',
+                                                        color: '#64748b',
+                                                        margin: 0
+                                                    }}>
+                                                        {patient.petSpecies}
+                                                        {patient.petWeight && ` • ${patient.petWeight}`}
+                                                    </p>
+                                                </div>
+
+                                                <div style={{
+                                                    backgroundColor: getAlertBgColor(patient.alertLevel),
+                                                    color: getAlertColor(patient.alertLevel),
+                                                    padding: '0.375rem 0.75rem',
+                                                    borderRadius: '8px',
+                                                    fontSize: '0.75rem',
+                                                    fontWeight: '600'
+                                                }}>
+                                                    {getAlertText(patient.alertLevel)}
+                                                </div>
+                                            </div>
+
+                                            <div style={{
+                                                display: 'grid',
+                                                gridTemplateColumns: 'repeat(2, 1fr)',
+                                                gap: '1rem',
+                                                fontSize: '0.875rem'
+                                            }}>
+                                                <div>
+                                                    <span style={{ color: '#6b7280', fontSize: '0.75rem', fontWeight: '500' }}>Last Visit</span>
+                                                    <div style={{ fontWeight: '500', color: '#374151' }}>{formatDate(patient.lastVisitDate)}</div>
+                                                </div>
+
+                                                <div>
+                                                    <span style={{ color: '#6b7280', fontSize: '0.75rem', fontWeight: '500' }}>Status</span>
+                                                    <div style={{
+                                                        color: getStatusColor(patient.currentStatus),
+                                                        fontWeight: '500',
+                                                        textTransform: 'capitalize'
+                                                    }}>
+                                                        {patient.currentStatus}
+                                                    </div>
+                                                </div>
+
+                                                <div>
+                                                    <span style={{ color: '#6b7280', fontSize: '0.75rem', fontWeight: '500' }}>Adherence</span>
+                                                    <div style={{
+                                                        color: getAdherenceColor(patient.overallAdherenceRate),
+                                                        fontWeight: '600'
+                                                    }}>
+                                                        {patient.overallAdherenceRate}%
+                                                    </div>
+                                                </div>
+
+                                                <div>
+                                                    <span style={{ color: '#6b7280', fontSize: '0.75rem', fontWeight: '500' }}>Alerts</span>
+                                                    <div style={{
+                                                        color: patient.recentSymptomAlerts > 0 ? '#ef4444' : '#9ca3af',
                                                         fontWeight: '500'
                                                     }}>
-                                                        {patient.totalDischarges} visits
+                                                        {patient.recentSymptomAlerts || 'None'}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Symptoms Component */}
+                                            {patient.recentSymptomAlerts > 0 && (
+                                                <div style={{ marginTop: '1rem' }}>
+                                                    <SymptomBadge
+                                                        dischargeId={patient.dischargeId}
+                                                        clinicId={clinic?.id || ''}
+                                                        showTooltip={false}
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        // Desktop layout
+                                        <>
+                                            <div>
+                                                <h3 style={{
+                                                    fontSize: '1rem',
+                                                    fontWeight: '600',
+                                                    color: '#1e293b',
+                                                    margin: '0 0 0.25rem 0'
+                                                }}>
+                                                    {patient.petName}
+                                                </h3>
+                                                <p style={{
+                                                    fontSize: '0.875rem',
+                                                    color: '#64748b',
+                                                    margin: '0 0 0.25rem 0'
+                                                }}>
+                                                    {patient.petSpecies}
+                                                    {patient.petWeight && ` • ${patient.petWeight}`}
+                                                </p>
+                                                <p style={{
+                                                    fontSize: '0.75rem',
+                                                    color: '#9ca3af',
+                                                    margin: 0
+                                                }}>
+                                                    {patient.totalDischarges} visit{patient.totalDischarges !== 1 ? 's' : ''}
+                                                </p>
+                                            </div>
+
+                                            <div style={{ textAlign: 'center' }}>
+                                                <div style={{
+                                                    fontSize: '0.875rem',
+                                                    fontWeight: '500',
+                                                    color: '#374151'
+                                                }}>
+                                                    {formatDate(patient.lastVisitDate)}
+                                                </div>
+                                            </div>
+
+                                            <div style={{ textAlign: 'center' }}>
+                                                <div style={{
+                                                    fontSize: '0.875rem',
+                                                    fontWeight: '600',
+                                                    color: getAdherenceColor(patient.overallAdherenceRate),
+                                                    marginBottom: '0.25rem'
+                                                }}>
+                                                    {patient.overallAdherenceRate}%
+                                                </div>
+                                                <div style={{
+                                                    fontSize: '0.75rem',
+                                                    color: getAdherenceColor(patient.activeOnlyAdherenceRate)
+                                                }}>
+                                                    {patient.activeOnlyAdherenceRate}% active
+                                                </div>
+                                            </div>
+
+                                            <div style={{
+                                                display: 'flex',
+                                                justifyContent: 'center',
+                                                alignItems: 'center'
+                                            }}>
+                                                {patient.recentSymptomAlerts > 0 ? (
+                                                    <SymptomBadge
+                                                        dischargeId={patient.dischargeId}
+                                                        clinicId={clinic?.id || ''}
+                                                        showTooltip={true}
+                                                    />
+                                                ) : (
+                                                    <span style={{
+                                                        fontSize: '0.75rem',
+                                                        color: '#9ca3af'
+                                                    }}>
+                                                        No alerts
                                                     </span>
                                                 )}
                                             </div>
+
                                             <div style={{
-                                                fontSize: '0.8125rem',
-                                                color: '#6D6D72',
-                                                fontWeight: '400',
-                                                marginBottom: '0.25rem'
+                                                display: 'flex',
+                                                justifyContent: 'center',
+                                                alignItems: 'center'
                                             }}>
-                                                {patient.petSpecies}
-                                                {patient.petWeight && ` • ${patient.petWeight}`}
+                                                <div style={{
+                                                    backgroundColor: patient.currentStatus === 'active' ? '#dcfce7' : '#f1f5f9',
+                                                    color: getStatusColor(patient.currentStatus),
+                                                    padding: '0.375rem 0.75rem',
+                                                    borderRadius: '6px',
+                                                    fontSize: '0.75rem',
+                                                    fontWeight: '600',
+                                                    textTransform: 'capitalize'
+                                                }}>
+                                                    {patient.currentStatus}
+                                                </div>
                                             </div>
+
                                             <div style={{
-                                                fontSize: '0.75rem',
-                                                color: '#9ca3af',
-                                                fontWeight: '400'
+                                                display: 'flex',
+                                                justifyContent: 'center',
+                                                alignItems: 'center'
                                             }}>
-                                                Last activity: {formatLastActivity(patient.lastActivity)}
+                                                <div style={{
+                                                    backgroundColor: getAlertBgColor(patient.alertLevel),
+                                                    color: getAlertColor(patient.alertLevel),
+                                                    padding: '0.375rem 0.75rem',
+                                                    borderRadius: '8px',
+                                                    fontSize: '0.75rem',
+                                                    fontWeight: '600'
+                                                }}>
+                                                    {getAlertText(patient.alertLevel)}
+                                                </div>
                                             </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Medications */}
-                                    <div style={{ textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        <div style={{
-                                            backgroundColor: '#f0f9ff',
-                                            color: '#0369a1',
-                                            padding: '0.375rem 0.75rem',
-                                            borderRadius: '8px',
-                                            fontSize: '0.875rem',
-                                            fontWeight: '600'
-                                        }}>
-                                            {patient.medicationCount}
-                                        </div>
-                                    </div>
-
-                                    {/* Adherence */}
-                                    <div style={{ textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        <div style={{
-                                            backgroundColor: patient.adherenceRate >= 85 ? '#dcfce7' :
-                                                patient.adherenceRate >= 70 ? '#fef3c7' :
-                                                    patient.adherenceRate > 0 ? '#fee2e2' : '#f3f4f6',
-                                            color: patient.adherenceRate >= 85 ? '#16a34a' :
-                                                patient.adherenceRate >= 70 ? '#d97706' :
-                                                    patient.adherenceRate > 0 ? '#dc2626' : '#6b7280',
-                                            padding: '0.375rem 0.75rem',
-                                            borderRadius: '8px',
-                                            fontSize: '0.875rem',
-                                            fontWeight: '600'
-                                        }}>
-                                            {patient.adherenceRate > 0 ? `${patient.adherenceRate}%` : 'No data'}
-                                        </div>
-                                    </div>
-
-                                    {/* Symptoms */}
-                                    <div style={{ textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        {patient.symptomFlagCount > 0 ? (
-                                            <SymptomBadge
-                                                dischargeId={patient.dischargeId}
-                                                clinicId={clinic?.id || ''}
-                                                showTooltip={false}
-                                            />
-                                        ) : (
-                                            <span style={{
-                                                fontSize: '0.8125rem',
-                                                color: '#6b7280',
-                                                fontWeight: '400'
-                                            }}>
-                                                None
-                                            </span>
-                                        )}
-                                    </div>
-
-                                    {/* Status */}
-                                    <div style={{ textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        <div style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '0.375rem',
-                                            padding: '0.375rem 0.75rem',
-                                            borderRadius: '8px',
-                                            backgroundColor: patient.isActive ? '#dcfce7' : '#f3f4f6'
-                                        }}>
-                                            <div style={{
-                                                width: '8px',
-                                                height: '8px',
-                                                borderRadius: '50%',
-                                                backgroundColor: patient.isActive ? '#16a34a' : '#6b7280'
-                                            }} />
-                                            <span style={{
-                                                fontSize: '0.8125rem',
-                                                color: patient.isActive ? '#16a34a' : '#6b7280',
-                                                fontWeight: '500'
-                                            }}>
-                                                {patient.isActive ? 'Active' : 'Inactive'}
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    {/* Priority */}
-                                    <div style={{ textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        <div style={{
-                                            backgroundColor: patient.alertLevel === 'high' ? '#fee2e2' :
-                                                patient.alertLevel === 'medium' ? '#fef3c7' :
-                                                    patient.alertLevel === 'low' ? '#fef3c7' : '#dcfce7',
-                                            color: getAlertColor(patient.alertLevel),
-                                            padding: '0.375rem 0.75rem',
-                                            borderRadius: '8px',
-                                            fontSize: '0.8125rem',
-                                            fontWeight: '600'
-                                        }}>
-                                            {getAlertText(patient.alertLevel)}
-                                        </div>
-                                    </div>
+                                        </>
+                                    )}
                                 </Link>
                             ))}
                         </div>
@@ -1138,17 +980,16 @@ export default function PatientDashboardPage() {
                                         setFilterAlert('all');
                                     }}
                                     style={{
-                                        color: '#007AFF',
                                         background: 'none',
                                         border: 'none',
+                                        color: '#007AFF',
                                         cursor: 'pointer',
-                                        fontSize: '0.875rem',
-                                        fontWeight: '500',
                                         textDecoration: 'underline',
+                                        fontSize: 'inherit',
                                         fontFamily: 'inherit'
                                     }}
                                 >
-                                    Show all patients
+                                    Clear filters
                                 </button>
                             </span>
                         )}
@@ -1156,126 +997,13 @@ export default function PatientDashboardPage() {
                 )}
             </main>
 
-            {/* Styles */}
+            {/* CSS for animations */}
             <style jsx>{`
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-        
-        @media (max-width: 1024px) {
-          /* Hide some navigation on smaller tablets */
-          nav {
-            display: none !important;
-          }
-        }
-        
-        @media (max-width: 768px) {
-          header {
-            padding: 1rem !important;
-          }
-          
-          main {
-            padding: 1rem !important;
-          }
-          
-          h1 {
-            font-size: 1.75rem !important;
-          }
-          
-          /* Make table responsive on mobile */
-          div[style*="gridTemplateColumns: '2.5fr 1fr 1fr 1fr 1fr 1fr'"] {
-            grid-template-columns: 1fr !important;
-            gap: 0.75rem !important;
-          }
-          
-          /* Hide table header on mobile */
-          div[style*="backgroundColor: '#F2F2F7'"][style*="textTransform: 'uppercase'"] {
-            display: none !important;
-          }
-          
-          /* Stack patient info vertically on mobile */
-          div[style*="display: flex"][style*="alignItems: 'center'"][style*="gap: '1rem'"] {
-            flex-direction: column !important;
-            align-items: flex-start !important;
-            gap: 0.75rem !important;
-          }
-          
-          /* Mobile filters */
-          div[style*="display: flex"][style*="gap: '1.25rem'"][style*="flexWrap: wrap"] {
-            flex-direction: column !important;
-            align-items: stretch !important;
-            gap: 1rem !important;
-          }
-          
-          div[style*="display: flex"][style*="gap: '1.25rem'"][style*="flexWrap: wrap"] > * {
-            width: 100% !important;
-            min-width: auto !important;
-          }
-          
-          /* Mobile stats grid */
-          div[style*="gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr)'"] {
-            grid-template-columns: repeat(2, 1fr) !important;
-            gap: 1rem !important;
-          }
-          
-          /* Mobile page header */
-          div[style*="justifyContent: 'space-between'"][style*="flexWrap: wrap"] {
-            flex-direction: column !important;
-            align-items: flex-start !important;
-            gap: 1.5rem !important;
-          }
-        }
-        
-        @media (max-width: 480px) {
-          /* Single column stats on very small screens */
-          div[style*="gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr)'"] {
-            grid-template-columns: 1fr !important;
-          }
-          
-          /* Smaller text on mobile */
-          h1 {
-            font-size: 1.5rem !important;
-          }
-          
-          /* Adjust padding */
-          main {
-            padding: 0.75rem !important;
-          }
-          
-          header {
-            padding: 0.75rem 1rem !important;
-          }
-        }
-        
-        /* Print styles */
-        @media print {
-          header {
-            position: static !important;
-            box-shadow: none !important;
-          }
-          
-          main {
-            padding: 1rem !important;
-          }
-          
-          * {
-            background: white !important;
-            color: black !important;
-            box-shadow: none !important;
-          }
-          
-          /* Hide filters when printing */
-          div[style*="backgroundColor: '#FFFFFF'"][style*="display: flex"][style*="gap: '1.25rem'"] {
-            display: none !important;
-          }
-          
-          /* Simplify table for print */
-          div[style*="gridTemplateColumns"] {
-            border: 1px solid #666 !important;
-          }
-        }
-      `}</style>
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+            `}</style>
         </div>
     );
 }

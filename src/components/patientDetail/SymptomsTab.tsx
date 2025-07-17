@@ -1,19 +1,29 @@
 // components/patientDetail/SymptomsTab.tsx
 'use client';
 
-import { getSymptomFlagsForDate, SymptomFlag, SymptomEntry as BaseSymptomEntry } from '@/lib/symptomFlags';
-
-// Extended types for this component
-interface SymptomEntry extends BaseSymptomEntry {
+// Local types for this component to avoid conflicts
+interface SymptomEntry {
+    date: string; // YYYY-MM-DD
+    appetite: number;
+    energyLevel: number;
+    isPanting: boolean;
+    notes?: string;
+    recordedAt: Date;
     dischargeId?: string;
 }
 
-interface ExtendedSymptomFlag extends SymptomFlag {
+interface SymptomFlag {
+    type: 'appetite_low' | 'appetite_drop' | 'energy_low' | 'energy_drop' | 'panting_persistent';
+    date: string; // YYYY-MM-DD when the flag was triggered
+    description: string;
+    severity: 'low' | 'medium' | 'high';
+    value?: number; // The symptom value that triggered the flag
+    previousValue?: number; // For drop flags
     dischargeId?: string;
 }
 
 export interface ExtendedSymptomAnalysis {
-    flags: ExtendedSymptomFlag[];
+    flags: SymptomFlag[];
     recentEntries: SymptomEntry[];
     trends: {
         appetite: { current: number; sevenDayAverage: number; trend: 'improving' | 'stable' | 'declining' };
@@ -53,6 +63,11 @@ export default function SymptomsTab({
             day: 'numeric',
             year: 'numeric'
         });
+    };
+
+    // Helper function to get flags for a specific date
+    const getFlagsForDate = (flags: SymptomFlag[], date: string): SymptomFlag[] => {
+        return flags.filter(flag => flag.date === date);
     };
 
     return (
@@ -151,7 +166,7 @@ export default function SymptomsTab({
                     {/* Recent Symptom Entries */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                         {symptomAnalysis.recentEntries.map((entry, index) => {
-                            const entryFlags = getSymptomFlagsForDate(symptomAnalysis.flags, entry.date);
+                            const entryFlags = getFlagsForDate(symptomAnalysis.flags, entry.date);
                             return (
                                 <div key={index} style={{
                                     padding: '1.75rem',

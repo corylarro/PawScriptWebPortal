@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
-import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
+import { collection, query, where, orderBy, limit, getDocs, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { COLLECTIONS } from '@/types/firestore';
 import { Discharge } from '@/types/discharge';
@@ -31,10 +31,10 @@ export default function DashboardPage() {
             if (!vetUser || !clinic) return;
 
             try {
-                // Get recent discharges
+                // Get recent discharges for display
                 const recentQuery = query(
                     collection(db, COLLECTIONS.DISCHARGES),
-                    where('vetId', '==', vetUser.id),
+                    where('clinicId', '==', clinic.id),
                     orderBy('createdAt', 'desc'),
                     limit(10)
                 );
@@ -56,31 +56,65 @@ export default function DashboardPage() {
 
                 setRecentDischarges(recentData);
 
-                // Calculate stats
+                // Calculate statistics with proper date ranges
                 const now = new Date();
                 const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-                const weekStart = new Date(today);
-                weekStart.setDate(today.getDate() - today.getDay());
-                const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+                const weekAgo = new Date(today);
+                weekAgo.setDate(today.getDate() - 7);
+                const monthAgo = new Date(today);
+                monthAgo.setDate(today.getDate() - 30);
 
-                const todayCount = recentData.filter(d => d.createdAt >= today).length;
-                const weekCount = recentData.filter(d => d.createdAt >= weekStart).length;
-                const monthCount = recentData.filter(d => d.createdAt >= monthStart).length;
+                // Query for today's discharges
+                const todayQuery = query(
+                    collection(db, COLLECTIONS.DISCHARGES),
+                    where('clinicId', '==', clinic.id),
+                    where('createdAt', '>=', Timestamp.fromDate(today)),
+                    where('createdAt', '<=', Timestamp.fromDate(new Date(today.getTime() + 24 * 60 * 60 * 1000)))
+                );
+
+                // Query for this week's discharges
+                const weekQuery = query(
+                    collection(db, COLLECTIONS.DISCHARGES),
+                    where('clinicId', '==', clinic.id),
+                    where('createdAt', '>=', Timestamp.fromDate(weekAgo)),
+                    where('createdAt', '<=', Timestamp.fromDate(now))
+                );
+
+                // Query for this month's discharges
+                const monthQuery = query(
+                    collection(db, COLLECTIONS.DISCHARGES),
+                    where('clinicId', '==', clinic.id),
+                    where('createdAt', '>=', Timestamp.fromDate(monthAgo)),
+                    where('createdAt', '<=', Timestamp.fromDate(now))
+                );
+
+                // Execute all queries in parallel
+                const [todaySnapshot, weekSnapshot, monthSnapshot] = await Promise.all([
+                    getDocs(todayQuery),
+                    getDocs(weekQuery),
+                    getDocs(monthQuery)
+                ]);
 
                 setStats({
-                    totalToday: todayCount,
-                    totalThisWeek: weekCount,
-                    totalThisMonth: monthCount
+                    totalToday: todaySnapshot.size,
+                    totalThisWeek: weekSnapshot.size,
+                    totalThisMonth: monthSnapshot.size
                 });
 
             } catch (error) {
                 console.error('Error loading dashboard data:', error);
+                // Set fallback stats on error
+                setStats({
+                    totalToday: 0,
+                    totalThisWeek: 0,
+                    totalThisMonth: 0
+                });
             } finally {
                 setLoadingData(false);
             }
         };
 
-        if (!loading && vetUser) {
+        if (!loading && vetUser && clinic) {
             loadDashboardData();
         }
     }, [vetUser, clinic, loading]);
@@ -818,56 +852,45 @@ export default function DashboardPage() {
                                 borderRadius: '12px',
                                 border: '1px solid #e2e8f0',
                                 textDecoration: 'none',
-                                transition: 'all 0.2s ease',
-                                position: 'relative',
-                                opacity: '0.7',
-                                cursor: 'not-allowed'
+                                transition: 'all 0.2s ease'
                             }}
-                            onClick={(e) => e.preventDefault()}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.borderColor = '#007AFF';
+                                e.currentTarget.style.backgroundColor = '#E5F3FF';
+                                e.currentTarget.style.transform = 'translateY(-2px)';
+                                e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 122, 255, 0.15)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.borderColor = '#e2e8f0';
+                                e.currentTarget.style.backgroundColor = '#F2F2F7';
+                                e.currentTarget.style.transform = 'translateY(0)';
+                                e.currentTarget.style.boxShadow = 'none';
+                            }}
                         >
                             <div style={{
                                 width: '48px',
                                 height: '48px',
-                                backgroundColor: '#6D6D72',
+                                backgroundColor: '#007AFF',
                                 borderRadius: '12px',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                boxShadow: '0 2px 8px rgba(109, 109, 114, 0.25)',
+                                boxShadow: '0 2px 8px rgba(0, 122, 255, 0.25)',
                                 overflow: 'hidden'
                             }}>
                                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                     <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
                                 </svg>
                             </div>
-                            <div style={{ flex: 1 }}>
-                                <div style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '0.5rem',
-                                    marginBottom: '0.25rem'
+                            <div>
+                                <h3 style={{
+                                    fontSize: '1.125rem',
+                                    fontWeight: '600',
+                                    color: '#1e293b',
+                                    margin: '0 0 0.25rem 0'
                                 }}>
-                                    <h3 style={{
-                                        fontSize: '1.125rem',
-                                        fontWeight: '600',
-                                        color: '#1e293b',
-                                        margin: '0'
-                                    }}>
-                                        Medication Monitoring
-                                    </h3>
-                                    <span style={{
-                                        backgroundColor: '#FF9500',
-                                        color: 'white',
-                                        fontSize: '0.625rem',
-                                        fontWeight: '600',
-                                        padding: '0.125rem 0.375rem',
-                                        borderRadius: '4px',
-                                        textTransform: 'uppercase',
-                                        letterSpacing: '0.025em'
-                                    }}>
-                                        Coming Soon
-                                    </span>
-                                </div>
+                                    Medication Monitoring
+                                </h3>
                                 <p style={{
                                     fontSize: '0.875rem',
                                     color: '#6D6D72',
