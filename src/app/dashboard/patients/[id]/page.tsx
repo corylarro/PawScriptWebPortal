@@ -785,10 +785,10 @@ export default function PatientDetailPage() {
                         backgroundColor: '#f8fafc'
                     }}>
                         {[
-                            { id: 'recent', label: 'Recent Discharges', icon: '📋' },
-                            { id: 'medications', label: 'Medications', icon: '💊' },
-                            { id: 'symptoms', label: 'Symptoms', icon: '📊' },
-                            { id: 'timeline', label: 'Timeline', icon: '📅' }
+                            { id: 'recent', label: 'Recent Discharges', icon: '' },
+                            { id: 'medications', label: 'Medications', icon: '' },
+                            { id: 'symptoms', label: 'Symptoms', icon: '' },
+                            { id: 'timeline', label: 'Timeline', icon: '' }
                         ].map((tab) => (
                             <button
                                 key={tab.id}

@@ -65,7 +65,7 @@ export default function MedicationsTab({
                 alignItems: 'center',
                 gap: '0.75rem'
             }}>
-                <span>💊</span>
+                <span></span>
                 Medication Adherence - All Visits
             </h3>
 

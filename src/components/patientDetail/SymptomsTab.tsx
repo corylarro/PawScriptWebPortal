@@ -81,7 +81,7 @@ export default function SymptomsTab({
                 alignItems: 'center',
                 gap: '0.75rem'
             }}>
-                <span>📈</span>
+                <span></span>
                 Symptom Analysis - All Visits
             </h3>
 
@@ -94,7 +94,7 @@ export default function SymptomsTab({
                     borderRadius: '16px',
                     border: '1px solid #e2e8f0'
                 }}>
-                    <div style={{ fontSize: '3.5rem', marginBottom: '1.5rem' }}>📊</div>
+                    <div style={{ fontSize: '3.5rem', marginBottom: '1.5rem' }}></div>
                     <h4 style={{
                         fontSize: '1.25rem',
                         fontWeight: '600',

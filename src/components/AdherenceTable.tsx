@@ -94,7 +94,7 @@ export default function AdherenceTable({ metrics, loading }: AdherenceTableProps
                     alignItems: 'center',
                     gap: '0.5rem'
                 }}>
-                    💊 Medication Adherence
+                    Medication Adherence
                 </h3>
             </div>
 

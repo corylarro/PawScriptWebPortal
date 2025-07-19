@@ -60,7 +60,7 @@ export default function TimelineTab({
                 alignItems: 'center',
                 gap: '0.75rem'
             }}>
-                <span>📅</span>
+                <span></span>
                 Treatment Timeline - All Visits
             </h3>
 
