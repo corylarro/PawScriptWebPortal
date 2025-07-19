@@ -127,7 +127,7 @@ export default function PublicDischargePage() {
                 padding: '1rem'
             }}>
                 <div style={{ textAlign: 'center', maxWidth: '400px' }}>
-                    <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📋</div>
+                    <div style={{ fontSize: '3rem', marginBottom: '1rem' }}></div>
                     <h1 style={{
                         fontSize: '1.5rem',
                         fontWeight: '600',
@@ -292,7 +292,7 @@ export default function PublicDischargePage() {
                         gap: '1rem',
                         marginBottom: '1rem'
                     }}>
-                        <div style={{
+                        {/* <div style={{
                             width: '48px',
                             height: '48px',
                             backgroundColor: '#007AFF',
@@ -303,7 +303,7 @@ export default function PublicDischargePage() {
                             fontSize: '1.5rem'
                         }}>
                             🐾
-                        </div>
+                        </div> */}
                         <div>
                             <h2 style={{
                                 fontSize: '1.25rem',
@@ -361,7 +361,7 @@ export default function PublicDischargePage() {
                         gap: '0.75rem',
                         marginBottom: '1.5rem'
                     }}>
-                        <div style={{
+                        {/* <div style={{
                             width: '32px',
                             height: '32px',
                             backgroundColor: '#34C759',
@@ -371,8 +371,8 @@ export default function PublicDischargePage() {
                             justifyContent: 'center',
                             fontSize: '1rem'
                         }}>
-                            💊
-                        </div>
+                            
+                        </div> */}
                         <h3 style={{
                             fontSize: '1.125rem',
                             fontWeight: '600',
@@ -691,7 +691,7 @@ export default function PublicDischargePage() {
                             gap: '0.75rem',
                             marginBottom: '1rem'
                         }}>
-                            <div style={{
+                            {/* <div style={{
                                 width: '32px',
                                 height: '32px',
                                 backgroundColor: '#FF9500',
@@ -702,7 +702,7 @@ export default function PublicDischargePage() {
                                 fontSize: '1rem'
                             }}>
                                 📝
-                            </div>
+                            </div> */}
                             <h3 style={{
                                 fontSize: '1.125rem',
                                 fontWeight: '600',

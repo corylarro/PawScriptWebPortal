@@ -366,7 +366,7 @@ const DischargeSummary = forwardRef<HTMLDivElement, DischargeSummaryProps>(
                         alignItems: 'center',
                         gap: '0.5rem'
                     }}>
-                        🐾 Patient Information
+                        Patient Information
                     </h4>
                     <div style={{
                         display: 'grid',
@@ -467,7 +467,7 @@ const DischargeSummary = forwardRef<HTMLDivElement, DischargeSummaryProps>(
                         alignItems: 'center',
                         gap: '0.5rem'
                     }}>
-                        💊 Prescribed Medications ({discharge.medications.length})
+                        Prescribed Medications ({discharge.medications.length})
                     </h4>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -786,7 +786,7 @@ const DischargeSummary = forwardRef<HTMLDivElement, DischargeSummaryProps>(
                             alignItems: 'center',
                             gap: '0.5rem'
                         }}>
-                            📝 Additional Notes
+                            Additional Notes
                         </h4>
                         <p style={{
                             fontSize: isMobile ? '0.875rem' : '1rem',
