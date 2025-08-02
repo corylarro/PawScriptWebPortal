@@ -1,4 +1,4 @@
-// src/app/dashboard/clients/[id]/page.tsx
+// src/app/dashboard/clients/[id]/page.tsx - MOBILE RESPONSIVE VERSION
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -10,7 +10,7 @@ import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { db } from '@/lib/firebase';
 import { COLLECTIONS, Client, Pet } from '@/types/firestore';
 import Navigation from '@/components/Navigation';
-import PetModal from '@/components/PetModal'; // Add this import
+import PetModal from '@/components/PetModal';
 
 // Extended Pet interface for the detail view (adds computed fields)
 interface PetWithMedications extends Pet {
@@ -32,6 +32,9 @@ export default function ClientDetailPage() {
     const { vetUser, clinic } = useAuth();
     const { loading: authLoading } = useRequireAuth();
 
+    // Mobile responsive state
+    const [isMobile, setIsMobile] = useState(false);
+
     // Progressive loading states
     const [client, setClient] = useState<Client | null>(null);
     const [pets, setPets] = useState<PetWithMedications[]>([]);
@@ -47,10 +50,20 @@ export default function ClientDetailPage() {
     const [editForm, setEditForm] = useState<Partial<Client>>({});
     const [saving, setSaving] = useState(false);
 
-    // Pet Modal state - ADD THESE LINES
+    // Pet Modal state
     const [isPetModalOpen, setIsPetModalOpen] = useState(false);
     const [editingPet, setEditingPet] = useState<Pet | null>(null);
     const [petModalMode, setPetModalMode] = useState<'add' | 'edit'>('add');
+
+    // Mobile detection
+    useEffect(() => {
+        const checkMobile = () => {
+            setIsMobile(window.innerWidth < 768);
+        };
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
 
     // Load client info first
     useEffect(() => {
@@ -274,7 +287,6 @@ export default function ClientDetailPage() {
         }
     };
 
-    // ADD THESE FUNCTIONS
     const handleEditPet = (pet: Pet) => {
         setEditingPet(pet);
         setPetModalMode('edit');
@@ -329,19 +341,26 @@ export default function ClientDetailPage() {
                 alignItems: 'center',
                 justifyContent: 'center',
                 backgroundColor: '#f8fafc',
-                fontFamily: 'Nunito, -apple-system, BlinkMacSystemFont, sans-serif'
+                fontFamily: 'Nunito, -apple-system, BlinkMacSystemFont, sans-serif',
+                padding: isMobile ? '1rem' : '2rem'
             }}>
                 <div style={{ textAlign: 'center' }}>
                     <div style={{
-                        width: '48px',
-                        height: '48px',
+                        width: isMobile ? '40px' : '48px',
+                        height: isMobile ? '40px' : '48px',
                         border: '3px solid #e2e8f0',
                         borderTop: '3px solid #007AFF',
                         borderRadius: '50%',
                         animation: 'spin 1s linear infinite',
                         margin: '0 auto 1rem auto'
                     }} />
-                    <p style={{ color: '#64748b', fontSize: '1rem' }}>Loading client details...</p>
+                    <p style={{
+                        color: '#64748b',
+                        fontSize: isMobile ? '0.875rem' : '1rem',
+                        fontWeight: '400'
+                    }}>
+                        Loading client details...
+                    </p>
                 </div>
             </div>
         );
@@ -355,12 +374,19 @@ export default function ClientDetailPage() {
                 alignItems: 'center',
                 justifyContent: 'center',
                 backgroundColor: '#f8fafc',
-                fontFamily: 'Nunito, -apple-system, BlinkMacSystemFont, sans-serif'
+                fontFamily: 'Nunito, -apple-system, BlinkMacSystemFont, sans-serif',
+                padding: isMobile ? '1rem' : '2rem'
             }}>
-                <div style={{ textAlign: 'center', maxWidth: '400px' }}>
-                    <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🐾</div>
+                <div style={{
+                    textAlign: 'center',
+                    maxWidth: isMobile ? '300px' : '400px'
+                }}>
+                    <div style={{
+                        fontSize: isMobile ? '2rem' : '3rem',
+                        marginBottom: '1rem'
+                    }}>🐾</div>
                     <h1 style={{
-                        fontSize: '1.5rem',
+                        fontSize: isMobile ? '1.25rem' : '1.5rem',
                         fontWeight: '600',
                         color: '#dc2626',
                         marginBottom: '0.5rem'
@@ -369,7 +395,8 @@ export default function ClientDetailPage() {
                     </h1>
                     <p style={{
                         color: '#6b7280',
-                        marginBottom: '2rem'
+                        marginBottom: '2rem',
+                        fontSize: isMobile ? '0.875rem' : '1rem'
                     }}>
                         {error || 'This client may have been removed or you may not have access.'}
                     </p>
@@ -378,10 +405,12 @@ export default function ClientDetailPage() {
                         style={{
                             backgroundColor: '#007AFF',
                             color: 'white',
-                            padding: '0.75rem 1.5rem',
+                            padding: isMobile ? '0.625rem 1.25rem' : '0.75rem 1.5rem',
                             borderRadius: '8px',
                             textDecoration: 'none',
-                            fontWeight: '600'
+                            fontWeight: '600',
+                            fontSize: isMobile ? '0.875rem' : '1rem',
+                            display: 'inline-block'
                         }}
                     >
                         Back to Clients
@@ -404,25 +433,27 @@ export default function ClientDetailPage() {
             <div style={{
                 maxWidth: '1200px',
                 margin: '0 auto',
-                padding: '2rem'
+                padding: isMobile ? '1rem' : '2rem'
             }}>
                 {/* Client Info Section */}
                 <div style={{
                     backgroundColor: 'white',
-                    borderRadius: '16px',
-                    padding: '2rem',
-                    marginBottom: '2rem',
+                    borderRadius: isMobile ? '12px' : '16px',
+                    padding: isMobile ? '1.5rem' : '2rem',
+                    marginBottom: isMobile ? '1.5rem' : '2rem',
                     boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
                     border: '1px solid #e2e8f0'
                 }}>
                     <div style={{
                         display: 'flex',
+                        flexDirection: isMobile ? 'column' : 'row',
                         justifyContent: 'space-between',
-                        alignItems: 'center',
-                        marginBottom: '1.5rem'
+                        alignItems: isMobile ? 'flex-start' : 'center',
+                        marginBottom: isMobile ? '1.25rem' : '1.5rem',
+                        gap: isMobile ? '1rem' : '0'
                     }}>
                         <h1 style={{
-                            fontSize: '1.875rem',
+                            fontSize: isMobile ? '1.5rem' : '1.875rem',
                             fontWeight: '700',
                             color: '#1e293b',
                             margin: 0,
@@ -438,12 +469,13 @@ export default function ClientDetailPage() {
                                 backgroundColor: isEditing ? '#6b7280' : '#007AFF',
                                 color: 'white',
                                 border: 'none',
-                                padding: '0.75rem 1.5rem',
+                                padding: isMobile ? '0.625rem 1.25rem' : '0.75rem 1.5rem',
                                 borderRadius: '8px',
-                                fontSize: '0.875rem',
+                                fontSize: isMobile ? '0.8125rem' : '0.875rem',
                                 fontWeight: '600',
                                 cursor: 'pointer',
-                                transition: 'all 0.2s ease'
+                                transition: 'all 0.2s ease',
+                                width: isMobile ? '100%' : 'auto'
                             }}
                             onClick={() => {
                                 if (isEditing) {
@@ -461,13 +493,13 @@ export default function ClientDetailPage() {
                     {/* Client Details */}
                     <div style={{
                         display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-                        gap: '1.5rem'
+                        gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(300px, 1fr))',
+                        gap: isMobile ? '1.25rem' : '1.5rem'
                     }}>
                         <div>
                             <label style={{
                                 display: 'block',
-                                fontSize: '0.875rem',
+                                fontSize: isMobile ? '0.8125rem' : '0.875rem',
                                 fontWeight: '600',
                                 color: '#374151',
                                 marginBottom: '0.5rem'
@@ -482,10 +514,10 @@ export default function ClientDetailPage() {
                                         onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
                                         placeholder="Email"
                                         style={{
-                                            padding: '0.75rem',
+                                            padding: isMobile ? '0.625rem 0.875rem' : '0.75rem 1rem',
                                             border: '1px solid #d1d5db',
                                             borderRadius: '6px',
-                                            fontSize: '0.875rem'
+                                            fontSize: isMobile ? '0.875rem' : '1rem'
                                         }}
                                     />
                                     <input
@@ -494,19 +526,27 @@ export default function ClientDetailPage() {
                                         onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
                                         placeholder="Phone"
                                         style={{
-                                            padding: '0.75rem',
+                                            padding: isMobile ? '0.625rem 0.875rem' : '0.75rem 1rem',
                                             border: '1px solid #d1d5db',
                                             borderRadius: '6px',
-                                            fontSize: '0.875rem'
+                                            fontSize: isMobile ? '0.875rem' : '1rem'
                                         }}
                                     />
                                 </div>
                             ) : (
                                 <div>
-                                    <p style={{ margin: '0 0 0.5rem 0', color: '#4b5563' }}>
+                                    <p style={{
+                                        margin: '0 0 0.5rem 0',
+                                        color: '#4b5563',
+                                        fontSize: isMobile ? '0.875rem' : '1rem'
+                                    }}>
                                         📧 {client.email || 'No email provided'}
                                     </p>
-                                    <p style={{ margin: '0', color: '#4b5563' }}>
+                                    <p style={{
+                                        margin: '0',
+                                        color: '#4b5563',
+                                        fontSize: isMobile ? '0.875rem' : '1rem'
+                                    }}>
                                         📞 {client.phone || 'No phone provided'}
                                     </p>
                                 </div>
@@ -516,7 +556,7 @@ export default function ClientDetailPage() {
                         <div>
                             <label style={{
                                 display: 'block',
-                                fontSize: '0.875rem',
+                                fontSize: isMobile ? '0.8125rem' : '0.875rem',
                                 fontWeight: '600',
                                 color: '#374151',
                                 marginBottom: '0.5rem'
@@ -534,13 +574,17 @@ export default function ClientDetailPage() {
                                         })}
                                         placeholder="Street Address"
                                         style={{
-                                            padding: '0.75rem',
+                                            padding: isMobile ? '0.625rem 0.875rem' : '0.75rem 1rem',
                                             border: '1px solid #d1d5db',
                                             borderRadius: '6px',
-                                            fontSize: '0.875rem'
+                                            fontSize: isMobile ? '0.875rem' : '1rem'
                                         }}
                                     />
-                                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                    <div style={{
+                                        display: 'flex',
+                                        flexDirection: isMobile ? 'column' : 'row',
+                                        gap: '0.5rem'
+                                    }}>
                                         <input
                                             type="text"
                                             value={editForm.address?.city || ''}
@@ -551,48 +595,61 @@ export default function ClientDetailPage() {
                                             placeholder="City"
                                             style={{
                                                 flex: 1,
-                                                padding: '0.75rem',
+                                                padding: isMobile ? '0.625rem 0.875rem' : '0.75rem 1rem',
                                                 border: '1px solid #d1d5db',
                                                 borderRadius: '6px',
-                                                fontSize: '0.875rem'
+                                                fontSize: isMobile ? '0.875rem' : '1rem'
                                             }}
                                         />
-                                        <input
-                                            type="text"
-                                            value={editForm.address?.state || ''}
-                                            onChange={(e) => setEditForm({
-                                                ...editForm,
-                                                address: { ...editForm.address!, state: e.target.value }
-                                            })}
-                                            placeholder="State"
-                                            style={{
-                                                width: '80px',
-                                                padding: '0.75rem',
-                                                border: '1px solid #d1d5db',
-                                                borderRadius: '6px',
-                                                fontSize: '0.875rem'
-                                            }}
-                                        />
-                                        <input
-                                            type="text"
-                                            value={editForm.address?.zipCode || ''}
-                                            onChange={(e) => setEditForm({
-                                                ...editForm,
-                                                address: { ...editForm.address!, zipCode: e.target.value }
-                                            })}
-                                            placeholder="ZIP"
-                                            style={{
-                                                width: '100px',
-                                                padding: '0.75rem',
-                                                border: '1px solid #d1d5db',
-                                                borderRadius: '6px',
-                                                fontSize: '0.875rem'
-                                            }}
-                                        />
+                                        <div style={{
+                                            display: 'flex',
+                                            gap: '0.5rem',
+                                            flex: isMobile ? 'none' : 'initial'
+                                        }}>
+                                            <input
+                                                type="text"
+                                                value={editForm.address?.state || ''}
+                                                onChange={(e) => setEditForm({
+                                                    ...editForm,
+                                                    address: { ...editForm.address!, state: e.target.value }
+                                                })}
+                                                placeholder="State"
+                                                style={{
+                                                    width: isMobile ? 'auto' : '80px',
+                                                    flex: isMobile ? '1' : 'none',
+                                                    padding: isMobile ? '0.625rem 0.875rem' : '0.75rem 1rem',
+                                                    border: '1px solid #d1d5db',
+                                                    borderRadius: '6px',
+                                                    fontSize: isMobile ? '0.875rem' : '1rem'
+                                                }}
+                                            />
+                                            <input
+                                                type="text"
+                                                value={editForm.address?.zipCode || ''}
+                                                onChange={(e) => setEditForm({
+                                                    ...editForm,
+                                                    address: { ...editForm.address!, zipCode: e.target.value }
+                                                })}
+                                                placeholder="ZIP"
+                                                style={{
+                                                    width: isMobile ? 'auto' : '100px',
+                                                    flex: isMobile ? '1' : 'none',
+                                                    padding: isMobile ? '0.625rem 0.875rem' : '0.75rem 1rem',
+                                                    border: '1px solid #d1d5db',
+                                                    borderRadius: '6px',
+                                                    fontSize: isMobile ? '0.875rem' : '1rem'
+                                                }}
+                                            />
+                                        </div>
                                     </div>
                                 </div>
                             ) : (
-                                <p style={{ margin: '0', color: '#4b5563' }}>
+                                <p style={{
+                                    margin: '0',
+                                    color: '#4b5563',
+                                    fontSize: isMobile ? '0.875rem' : '1rem',
+                                    lineHeight: '1.5'
+                                }}>
                                     🏠 {client.address?.street ? (
                                         `${client.address.street}, ${client.address.city}, ${client.address.state} ${client.address.zipCode}`
                                     ) : (
@@ -607,20 +664,22 @@ export default function ClientDetailPage() {
                 {/* Pets Section */}
                 <div style={{
                     backgroundColor: 'white',
-                    borderRadius: '16px',
-                    padding: '2rem',
-                    marginBottom: '2rem',
+                    borderRadius: isMobile ? '12px' : '16px',
+                    padding: isMobile ? '1.5rem' : '2rem',
+                    marginBottom: isMobile ? '1.5rem' : '2rem',
                     boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
                     border: '1px solid #e2e8f0'
                 }}>
                     <div style={{
                         display: 'flex',
+                        flexDirection: isMobile ? 'column' : 'row',
                         justifyContent: 'space-between',
-                        alignItems: 'center',
-                        marginBottom: '1.5rem'
+                        alignItems: isMobile ? 'flex-start' : 'center',
+                        marginBottom: isMobile ? '1.25rem' : '1.5rem',
+                        gap: isMobile ? '1rem' : '0'
                     }}>
                         <h2 style={{
-                            fontSize: '1.5rem',
+                            fontSize: isMobile ? '1.25rem' : '1.5rem',
                             fontWeight: '700',
                             color: '#1e293b',
                             margin: 0,
@@ -631,22 +690,23 @@ export default function ClientDetailPage() {
                             🐾 Pets ({pets.length})
                         </h2>
 
-                        {/* ADD PET BUTTON */}
                         <button
                             onClick={handleAddPet}
                             style={{
                                 backgroundColor: '#16a34a',
                                 color: 'white',
                                 border: 'none',
-                                padding: '0.75rem 1.5rem',
+                                padding: isMobile ? '0.625rem 1.25rem' : '0.75rem 1.5rem',
                                 borderRadius: '8px',
-                                fontSize: '0.875rem',
+                                fontSize: isMobile ? '0.8125rem' : '0.875rem',
                                 fontWeight: '600',
                                 cursor: 'pointer',
                                 transition: 'all 0.2s ease',
                                 display: 'flex',
                                 alignItems: 'center',
-                                gap: '0.5rem'
+                                gap: '0.5rem',
+                                width: isMobile ? '100%' : 'auto',
+                                justifyContent: 'center'
                             }}
                             onMouseEnter={(e) => {
                                 e.currentTarget.style.backgroundColor = '#15803d';
@@ -662,36 +722,42 @@ export default function ClientDetailPage() {
                     {loadingPets ? (
                         <div style={{
                             textAlign: 'center',
-                            padding: '3rem',
+                            padding: isMobile ? '2rem 1rem' : '3rem',
                             color: '#64748b'
                         }}>
                             <div style={{
-                                width: '32px',
-                                height: '32px',
+                                width: isMobile ? '28px' : '32px',
+                                height: isMobile ? '28px' : '32px',
                                 border: '3px solid #e2e8f0',
                                 borderTop: '3px solid #007AFF',
                                 borderRadius: '50%',
                                 animation: 'spin 1s linear infinite',
                                 margin: '0 auto 1rem auto'
                             }} />
-                            Loading pets...
+                            <p style={{ fontSize: isMobile ? '0.875rem' : '1rem' }}>
+                                Loading pets...
+                            </p>
                         </div>
                     ) : pets.length === 0 ? (
                         <div style={{
                             textAlign: 'center',
-                            padding: '3rem',
+                            padding: isMobile ? '2rem 1rem' : '3rem',
                             color: '#6b7280'
                         }}>
-                            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🐾</div>
+                            <div style={{ fontSize: isMobile ? '2rem' : '3rem', marginBottom: '1rem' }}>🐾</div>
                             <h4 style={{
-                                fontSize: '1.125rem',
+                                fontSize: isMobile ? '1rem' : '1.125rem',
                                 fontWeight: '600',
                                 marginBottom: '0.5rem',
                                 color: '#374151'
                             }}>
                                 No pets found
                             </h4>
-                            <p style={{ fontSize: '0.875rem', marginBottom: '1.5rem' }}>
+                            <p style={{
+                                fontSize: isMobile ? '0.8125rem' : '0.875rem',
+                                marginBottom: '1.5rem',
+                                lineHeight: '1.5'
+                            }}>
                                 This client doesn&apos;t have any pets registered yet.
                             </p>
                             <button
@@ -700,9 +766,9 @@ export default function ClientDetailPage() {
                                     backgroundColor: '#16a34a',
                                     color: 'white',
                                     border: 'none',
-                                    padding: '0.75rem 1.5rem',
+                                    padding: isMobile ? '0.625rem 1.25rem' : '0.75rem 1.5rem',
                                     borderRadius: '8px',
-                                    fontSize: '0.875rem',
+                                    fontSize: isMobile ? '0.8125rem' : '0.875rem',
                                     fontWeight: '600',
                                     cursor: 'pointer'
                                 }}
@@ -713,16 +779,16 @@ export default function ClientDetailPage() {
                     ) : (
                         <div style={{
                             display: 'grid',
-                            gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
-                            gap: '1rem'
+                            gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(350px, 1fr))',
+                            gap: isMobile ? '1.25rem' : '1rem'
                         }}>
                             {pets.map(pet => (
                                 <div
                                     key={pet.id}
                                     style={{
                                         backgroundColor: '#f8fafc',
-                                        borderRadius: '12px',
-                                        padding: '1.5rem',
+                                        borderRadius: isMobile ? '10px' : '12px',
+                                        padding: isMobile ? '1.25rem' : '1.5rem',
                                         border: '1px solid #e2e8f0'
                                     }}
                                 >
@@ -735,7 +801,7 @@ export default function ClientDetailPage() {
                                         {/* Pet Info */}
                                         <div style={{ flex: 1 }}>
                                             <h3 style={{
-                                                fontSize: '1.125rem',
+                                                fontSize: isMobile ? '1rem' : '1.125rem',
                                                 fontWeight: '600',
                                                 color: '#1e293b',
                                                 margin: '0 0 0.5rem 0'
@@ -743,15 +809,16 @@ export default function ClientDetailPage() {
                                                 {pet.name}
                                             </h3>
                                             <p style={{
-                                                fontSize: '0.875rem',
+                                                fontSize: isMobile ? '0.8125rem' : '0.875rem',
                                                 color: '#64748b',
-                                                margin: '0 0 0.25rem 0'
+                                                margin: '0 0 0.25rem 0',
+                                                lineHeight: '1.4'
                                             }}>
                                                 {pet.species} • {pet.breed} • {pet.weight}
                                             </p>
                                             {pet.lastDischargeDate && (
                                                 <p style={{
-                                                    fontSize: '0.75rem',
+                                                    fontSize: isMobile ? '0.6875rem' : '0.75rem',
                                                     color: '#6b7280',
                                                     margin: '0'
                                                 }}>
@@ -763,10 +830,10 @@ export default function ClientDetailPage() {
                                         {/* Active Medications Badge */}
                                         <div style={{
                                             textAlign: 'center',
-                                            minWidth: '60px'
+                                            minWidth: isMobile ? '50px' : '60px'
                                         }}>
                                             <div style={{
-                                                fontSize: '1.5rem',
+                                                fontSize: isMobile ? '1.25rem' : '1.5rem',
                                                 fontWeight: '700',
                                                 color: pet.activeMedications > 0 ? '#16a34a' : '#94a3b8',
                                                 marginBottom: '0.25rem'
@@ -774,7 +841,7 @@ export default function ClientDetailPage() {
                                                 {pet.activeMedications}
                                             </div>
                                             <div style={{
-                                                fontSize: '0.75rem',
+                                                fontSize: isMobile ? '0.6875rem' : '0.75rem',
                                                 color: '#64748b',
                                                 fontWeight: '600'
                                             }}>
@@ -783,7 +850,7 @@ export default function ClientDetailPage() {
                                         </div>
                                     </div>
 
-                                    {/* Actions - UPDATED EDIT BUTTON */}
+                                    {/* Actions */}
                                     <div style={{
                                         display: 'flex',
                                         justifyContent: 'flex-end'
@@ -794,9 +861,9 @@ export default function ClientDetailPage() {
                                                 backgroundColor: '#f1f5f9',
                                                 color: '#64748b',
                                                 border: '1px solid #e2e8f0',
-                                                padding: '0.5rem 0.75rem',
+                                                padding: isMobile ? '0.5rem 0.75rem' : '0.5rem 0.75rem',
                                                 borderRadius: '6px',
-                                                fontSize: '0.75rem',
+                                                fontSize: isMobile ? '0.6875rem' : '0.75rem',
                                                 fontWeight: '600',
                                                 cursor: 'pointer',
                                                 transition: 'all 0.2s ease'
@@ -818,13 +885,13 @@ export default function ClientDetailPage() {
                                     {pet.activeMedications > 0 && (
                                         <div style={{
                                             marginTop: '1rem',
-                                            padding: '0.75rem',
+                                            padding: isMobile ? '0.625rem' : '0.75rem',
                                             backgroundColor: 'white',
                                             borderRadius: '8px',
                                             border: '1px solid #e2e8f0'
                                         }}>
                                             <div style={{
-                                                fontSize: '0.75rem',
+                                                fontSize: isMobile ? '0.6875rem' : '0.75rem',
                                                 fontWeight: '600',
                                                 color: '#64748b',
                                                 marginBottom: '0.5rem'
@@ -832,7 +899,7 @@ export default function ClientDetailPage() {
                                                 CURRENT MEDICATIONS
                                             </div>
                                             <div style={{
-                                                fontSize: '0.875rem',
+                                                fontSize: isMobile ? '0.8125rem' : '0.875rem',
                                                 color: '#374151'
                                             }}>
                                                 {pet.activeMedications} active prescription{pet.activeMedications !== 1 ? 's' : ''}
@@ -848,16 +915,16 @@ export default function ClientDetailPage() {
                 {/* Past Visits Section */}
                 <div style={{
                     backgroundColor: 'white',
-                    borderRadius: '16px',
-                    padding: '2rem',
+                    borderRadius: isMobile ? '12px' : '16px',
+                    padding: isMobile ? '1.5rem' : '2rem',
                     boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
                     border: '1px solid #e2e8f0'
                 }}>
                     <h3 style={{
-                        fontSize: '1.5rem',
+                        fontSize: isMobile ? '1.25rem' : '1.5rem',
                         fontWeight: '700',
                         color: '#1e293b',
-                        marginBottom: '1.5rem',
+                        marginBottom: isMobile ? '1.25rem' : '1.5rem',
                         display: 'flex',
                         alignItems: 'center',
                         gap: '0.5rem'
@@ -868,36 +935,41 @@ export default function ClientDetailPage() {
                     {loadingVisits ? (
                         <div style={{
                             textAlign: 'center',
-                            padding: '3rem',
+                            padding: isMobile ? '2rem 1rem' : '3rem',
                             color: '#64748b'
                         }}>
                             <div style={{
-                                width: '32px',
-                                height: '32px',
+                                width: isMobile ? '28px' : '32px',
+                                height: isMobile ? '28px' : '32px',
                                 border: '3px solid #e2e8f0',
                                 borderTop: '3px solid #007AFF',
                                 borderRadius: '50%',
                                 animation: 'spin 1s linear infinite',
                                 margin: '0 auto 1rem auto'
                             }} />
-                            Loading past visits...
+                            <p style={{ fontSize: isMobile ? '0.875rem' : '1rem' }}>
+                                Loading past visits...
+                            </p>
                         </div>
                     ) : pastVisits.length === 0 ? (
                         <div style={{
                             textAlign: 'center',
-                            padding: '3rem',
+                            padding: isMobile ? '2rem 1rem' : '3rem',
                             color: '#6b7280'
                         }}>
-                            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🩺</div>
+                            <div style={{ fontSize: isMobile ? '2rem' : '3rem', marginBottom: '1rem' }}>🩺</div>
                             <h4 style={{
-                                fontSize: '1.125rem',
+                                fontSize: isMobile ? '1rem' : '1.125rem',
                                 fontWeight: '600',
                                 marginBottom: '0.5rem',
                                 color: '#374151'
                             }}>
                                 No past visits
                             </h4>
-                            <p style={{ fontSize: '0.875rem' }}>
+                            <p style={{
+                                fontSize: isMobile ? '0.8125rem' : '0.875rem',
+                                lineHeight: '1.5'
+                            }}>
                                 Past discharge summaries will appear here once created.
                             </p>
                         </div>
@@ -905,15 +977,15 @@ export default function ClientDetailPage() {
                         <div style={{
                             display: 'flex',
                             flexDirection: 'column',
-                            gap: '1rem'
+                            gap: isMobile ? '0.75rem' : '1rem'
                         }}>
                             {pastVisits.map(visit => (
                                 <div
                                     key={visit.id}
                                     style={{
                                         backgroundColor: '#f8fafc',
-                                        borderRadius: '12px',
-                                        padding: '1.5rem',
+                                        borderRadius: isMobile ? '10px' : '12px',
+                                        padding: isMobile ? '1.25rem' : '1.5rem',
                                         border: '1px solid #e2e8f0',
                                         transition: 'all 0.2s ease'
                                     }}
@@ -928,12 +1000,14 @@ export default function ClientDetailPage() {
                                 >
                                     <div style={{
                                         display: 'flex',
+                                        flexDirection: isMobile ? 'column' : 'row',
                                         justifyContent: 'space-between',
-                                        alignItems: 'center'
+                                        alignItems: isMobile ? 'flex-start' : 'center',
+                                        gap: isMobile ? '1rem' : '0'
                                     }}>
                                         <div style={{ flex: 1 }}>
                                             <h4 style={{
-                                                fontSize: '1.125rem',
+                                                fontSize: isMobile ? '1rem' : '1.125rem',
                                                 fontWeight: '600',
                                                 color: '#1e293b',
                                                 margin: '0 0 0.5rem 0'
@@ -942,9 +1016,10 @@ export default function ClientDetailPage() {
                                             </h4>
                                             <div style={{
                                                 display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '1rem',
-                                                fontSize: '0.875rem',
+                                                flexDirection: isMobile ? 'column' : 'row',
+                                                alignItems: isMobile ? 'flex-start' : 'center',
+                                                gap: isMobile ? '0.25rem' : '1rem',
+                                                fontSize: isMobile ? '0.8125rem' : '0.875rem',
                                                 color: '#64748b'
                                             }}>
                                                 <span>
@@ -961,12 +1036,15 @@ export default function ClientDetailPage() {
                                             style={{
                                                 backgroundColor: '#007AFF',
                                                 color: 'white',
-                                                padding: '0.5rem 1rem',
+                                                padding: isMobile ? '0.625rem 1rem' : '0.5rem 1rem',
                                                 borderRadius: '6px',
                                                 textDecoration: 'none',
-                                                fontSize: '0.875rem',
+                                                fontSize: isMobile ? '0.8125rem' : '0.875rem',
                                                 fontWeight: '600',
-                                                transition: 'all 0.2s ease'
+                                                transition: 'all 0.2s ease',
+                                                textAlign: 'center',
+                                                width: isMobile ? '100%' : 'auto',
+                                                display: 'block'
                                             }}
                                             onMouseEnter={(e) => {
                                                 e.currentTarget.style.backgroundColor = '#0051d5';
@@ -985,7 +1063,7 @@ export default function ClientDetailPage() {
                 </div>
             </div>
 
-            {/* Pet Modal - ADD THIS */}
+            {/* Pet Modal */}
             {client && clinic && (
                 <PetModal
                     client={client}

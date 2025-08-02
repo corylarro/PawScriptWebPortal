@@ -771,7 +771,7 @@ export default function PatientDetailPage() {
                     </div>
                 </div>
 
-                {/* Tab Navigation */}
+                {/* Tab Navigation - IMPROVED MOBILE VERSION */}
                 <div style={{
                     backgroundColor: 'white',
                     borderRadius: '12px',
@@ -780,44 +780,109 @@ export default function PatientDetailPage() {
                 }}>
                     {/* Tab Headers */}
                     <div style={{
-                        display: 'flex',
+                        display: isMobile ? 'grid' : 'flex',
+                        gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : undefined,
                         borderBottom: '1px solid #f1f5f9',
                         backgroundColor: '#f8fafc'
                     }}>
                         {[
-                            { id: 'recent', label: 'Recent Discharges', icon: '' },
-                            { id: 'medications', label: 'Medications', icon: '' },
-                            { id: 'symptoms', label: 'Symptoms', icon: '' },
-                            { id: 'timeline', label: 'Timeline', icon: '' }
+                            {
+                                id: 'recent',
+                                label: 'Recent Discharges',
+                                shortLabel: 'Recent',
+                                icon: '📋',
+                                count: recentDischarges.length
+                            },
+                            {
+                                id: 'medications',
+                                label: 'Medications',
+                                shortLabel: 'Meds',
+                                icon: '💊',
+                                count: discharge.medications?.length || 0
+                            },
+                            {
+                                id: 'symptoms',
+                                label: 'Symptoms',
+                                shortLabel: 'Symptoms',
+                                icon: '📈',
+                                count: quickGlanceMetrics.recentSymptomAlerts
+                            },
+                            {
+                                id: 'timeline',
+                                label: 'Timeline',
+                                shortLabel: 'Timeline',
+                                icon: '📅',
+                                count: timelineEvents.length
+                            }
                         ].map((tab) => (
                             <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id as 'recent' | 'medications' | 'symptoms' | 'timeline')}
                                 style={{
-                                    flex: 1,
-                                    padding: isMobile ? '0.75rem 0.5rem' : '1rem 1.5rem',
+                                    padding: isMobile ? '1rem 0.75rem' : '1rem 1.5rem',
                                     border: 'none',
                                     backgroundColor: activeTab === tab.id ? 'white' : 'transparent',
                                     color: activeTab === tab.id ? '#007AFF' : '#6b7280',
                                     fontWeight: activeTab === tab.id ? '600' : '500',
-                                    fontSize: isMobile ? '0.75rem' : '0.875rem',
-                                    borderBottom: activeTab === tab.id ? '2px solid #007AFF' : '2px solid transparent',
+                                    fontSize: isMobile ? '0.8125rem' : '0.875rem',
+                                    borderBottom: activeTab === tab.id ? '3px solid #007AFF' : '3px solid transparent',
                                     cursor: 'pointer',
                                     transition: 'all 0.2s ease',
                                     fontFamily: 'inherit',
                                     display: 'flex',
+                                    flexDirection: isMobile ? 'column' : 'row',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    gap: '0.5rem'
+                                    gap: isMobile ? '0.375rem' : '0.5rem',
+                                    minHeight: isMobile ? '60px' : 'auto'
+                                }}
+                                onMouseEnter={(e) => {
+                                    if (activeTab !== tab.id) {
+                                        e.currentTarget.style.backgroundColor = '#f8fafc';
+                                        e.currentTarget.style.color = '#374151';
+                                    }
+                                }}
+                                onMouseLeave={(e) => {
+                                    if (activeTab !== tab.id) {
+                                        e.currentTarget.style.backgroundColor = 'transparent';
+                                        e.currentTarget.style.color = '#6b7280';
+                                    }
                                 }}
                             >
-                                <span>{tab.icon}</span>
-                                <span style={{ display: isMobile ? 'none' : 'block' }}>
-                                    {tab.label}
+                                <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.375rem'
+                                }}>
+                                    <span style={{ fontSize: isMobile ? '1rem' : '1.125rem' }}>
+                                        {tab.icon}
+                                    </span>
+                                    {tab.count > 0 && (
+                                        <span style={{
+                                            backgroundColor: activeTab === tab.id ? '#007AFF' : '#64748b',
+                                            color: 'white',
+                                            fontSize: '0.625rem',
+                                            fontWeight: '600',
+                                            padding: '0.125rem 0.375rem',
+                                            borderRadius: '8px',
+                                            minWidth: '1rem',
+                                            textAlign: 'center',
+                                            lineHeight: '1.2'
+                                        }}>
+                                            {tab.count > 99 ? '99+' : tab.count}
+                                        </span>
+                                    )}
+                                </div>
+                                <span style={{
+                                    fontSize: isMobile ? '0.75rem' : '0.875rem',
+                                    fontWeight: isMobile ? '500' : '500'
+                                }}>
+                                    {isMobile ? tab.shortLabel : tab.label}
                                 </span>
                             </button>
                         ))}
                     </div>
+                </div>
 
                     {/* Tab Content */}
                     <div style={{ minHeight: '400px', position: 'relative' }}>
@@ -840,52 +905,57 @@ export default function PatientDetailPage() {
                                     color: '#64748b'
                                 }}>
                                     <div style={{
-                                        width: '32px',
-                                        height: '32px',
+                                        width: isMobile ? '28px' : '32px',
+                                        height: isMobile ? '28px' : '32px',
                                         border: '3px solid #e2e8f0',
                                         borderTop: '3px solid #007AFF',
                                         borderRadius: '50%',
                                         animation: 'spin 1s linear infinite',
                                         margin: '0 auto 0.75rem auto'
                                     }} />
-                                    Loading {activeTab} data...
+                                    <span style={{ fontSize: isMobile ? '0.875rem' : '1rem' }}>
+                                        Loading {activeTab} data...
+                                    </span>
                                 </div>
                             </div>
                         )}
 
-                        {activeTab === 'recent' && (
-                            <RecentDischargesTab
-                                recentDischarges={recentDischarges}
-                                petName={discharge.pet.name}
-                                clinicId={clinic?.id || ''}
-                            />
-                        )}
+                        {/* Tab Content Panels with Mobile Padding */}
+                        <div style={{ padding: isMobile ? '1rem' : '1.5rem' }}>
+                            {activeTab === 'recent' && (
+                                <RecentDischargesTab
+                                    recentDischarges={recentDischarges}
+                                    petName={discharge.pet.name}
+                                    clinicId={clinic?.id || ''}
+                                />
+                            )}
 
-                        {activeTab === 'medications' && (
-                            <MedicationsTab
-                                adherenceMetrics={adherenceMetrics || getEmptyAdherenceMetrics()}
-                                recentDischarges={recentDischarges}
-                                petName={discharge.pet.name}
-                            />
-                        )}
+                            {activeTab === 'medications' && (
+                                <MedicationsTab
+                                    adherenceMetrics={adherenceMetrics || getEmptyAdherenceMetrics()}
+                                    recentDischarges={recentDischarges}
+                                    petName={discharge.pet.name}
+                                />
+                            )}
 
-                        {activeTab === 'symptoms' && (
-                            <SymptomsTab
-                                symptomAnalysis={symptomAnalysis || getEmptySymptomAnalysis()}
-                                recentDischarges={recentDischarges}
-                                petName={discharge.pet.name}
-                            />
-                        )}
+                            {activeTab === 'symptoms' && (
+                                <SymptomsTab
+                                    symptomAnalysis={symptomAnalysis || getEmptySymptomAnalysis()}
+                                    recentDischarges={recentDischarges}
+                                    petName={discharge.pet.name}
+                                />
+                            )}
 
-                        {activeTab === 'timeline' && (
-                            <TimelineTab
-                                timelineEvents={timelineEvents}
-                                recentDischarges={recentDischarges}
-                                petName={discharge.pet.name}
-                            />
-                        )}
+                            {activeTab === 'timeline' && (
+                                <TimelineTab
+                                    timelineEvents={timelineEvents}
+                                    recentDischarges={recentDischarges}
+                                    petName={discharge.pet.name}
+                                />
+                            )}
+                        </div>
                     </div>
-                </div>
+
 
                 {/* Data Status Footer (helpful for debugging) */}
                 {!dataLoading && (adherenceMetrics || symptomAnalysis || timelineEvents.length > 0) && (
